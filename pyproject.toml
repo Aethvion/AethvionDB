@@ -50,6 +50,9 @@ Repository = "https://github.com/Aethvion/AethvionDB"
 where = ["."]
 include = ["aethviondb*"]
 
+[tool.setuptools.package-data]
+aethviondb = ["web/*.html", "web/*.css", "web/*.js"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
