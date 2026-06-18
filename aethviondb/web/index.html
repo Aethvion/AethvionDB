@@ -3,184 +3,297 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AethvionDB</title>
+<title>AethvionDB · Console</title>
 <style>
-  :root {
-    --bg: #0e1116; --panel: #161b22; --panel2: #1c2230; --border: #2a3240;
-    --text: #e6edf3; --muted: #8b97a7; --accent: #4f9cff; --accent2: #6ee7b7;
-    --chip: #233044;
+  :root{
+    --bg:#06080f; --bg2:#0a0e1a; --panel:#0d1322cc; --panel-solid:#0d1322;
+    --line:#1a2336; --line2:#243150; --text:#dbe6f7; --muted:#6f8099; --dim:#46566f;
+    --cyan:#22d3ee; --blue:#3b82f6; --violet:#a78bfa; --green:#34d399; --amber:#fbbf24; --pink:#f472b6;
+    --glow:0 0 0 1px #22d3ee22, 0 0 24px #22d3ee14;
   }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-         background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
-  header { display: flex; align-items: center; gap: 14px; padding: 12px 18px;
-           border-bottom: 1px solid var(--border); background: var(--panel); }
-  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .3px; }
-  header .ver { color: var(--muted); font-size: 12px; }
-  header .spacer { flex: 1; }
-  select, input, button { font: inherit; color: var(--text); background: var(--panel2);
-           border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; outline: none; }
-  select:focus, input:focus { border-color: var(--accent); }
-  button { cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #06101f; font-weight: 600; }
-  button.primary:hover { filter: brightness(1.08); }
-  .wrap { flex: 1; display: grid; grid-template-columns: 380px 1fr; min-height: 0; }
-  .list { border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-  .list .controls { display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border); }
-  .list .controls input { flex: 1; }
-  .rows { overflow-y: auto; flex: 1; }
-  .row { padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer; }
-  .row:hover { background: var(--panel); }
-  .row.active { background: var(--panel2); border-left: 2px solid var(--accent); }
-  .row .name { font-weight: 600; font-size: 14px; }
-  .row .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px;
-           background: var(--chip); color: var(--accent2); margin-right: 6px; }
-  .detail { overflow-y: auto; padding: 18px 22px; }
-  .detail h2 { margin: 0 0 4px; font-size: 18px; }
-  .detail .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
-  .detail pre { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-                padding: 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.5; }
-  .empty { color: var(--muted); padding: 40px; text-align: center; }
-  .countbar { padding: 8px 14px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--border); }
-  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border);
-           border-radius: 12px; padding: 0; width: 360px; }
-  dialog form { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-  dialog h3 { margin: 0 0 4px; }
-  dialog .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
-  label { font-size: 12px; color: var(--muted); }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg); color:var(--text); overflow:hidden;
+    background-image:
+      radial-gradient(900px 500px at 80% -10%, #1b3a6b22, transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, #5b21b622, transparent 55%),
+      linear-gradient(transparent 95%, #ffffff05 95%), linear-gradient(90deg,transparent 95%, #ffffff05 95%);
+    background-size:auto,auto,28px 28px,28px 28px;
+  }
+  .app{display:grid; grid-template-columns:62px 1fr; height:100vh}
+  /* ── Rail ─────────────────────────────────────────────── */
+  .rail{background:var(--bg2); border-right:1px solid var(--line); display:flex; flex-direction:column;
+        align-items:center; padding:12px 0; gap:6px}
+  .logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:15px;
+        background:linear-gradient(135deg,var(--cyan),var(--violet)); color:#04111c; margin-bottom:10px;
+        box-shadow:0 0 18px #22d3ee55}
+  .nav{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--muted);
+       cursor:pointer;font-size:16px;border:1px solid transparent;transition:.15s}
+  .nav:hover{color:var(--text);background:#ffffff08}
+  .nav.active{color:var(--cyan);background:#22d3ee14;border-color:#22d3ee44;box-shadow:0 0 14px #22d3ee22}
+  .rail .sp{flex:1}
+  /* ── Main ─────────────────────────────────────────────── */
+  .main{display:grid;grid-template-rows:54px 1fr;min-width:0}
+  .top{display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);
+       background:linear-gradient(180deg,#0c121f,#0a0e1a)}
+  .top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.4px}
+  .top h1 b{color:var(--cyan)}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);
+        border:1px solid var(--line2);border-radius:999px;padding:4px 10px;background:#0e1626}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  .gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:#0c1422;border:1px solid var(--line2);
+           border-radius:10px;padding:7px 12px;color:var(--dim)}
+  .gsearch input{flex:1;background:none;border:none;outline:none;color:var(--text);font:inherit}
+  .top .sp{flex:1}
+  select,button,input{font:inherit;color:var(--text)}
+  .sel{background:#0c1422;border:1px solid var(--line2);border-radius:9px;padding:7px 10px;outline:none}
+  .btn{background:#0e1626;border:1px solid var(--line2);border-radius:9px;padding:7px 12px;cursor:pointer;color:var(--text)}
+  .btn:hover{border-color:var(--cyan);color:var(--cyan)}
+  .btn.cyan{background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#04111c;font-weight:700}
+  .btn.cyan:hover{filter:brightness(1.1);color:#04111c}
+  /* ── Content grid ─────────────────────────────────────── */
+  .content{overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+  .card{background:var(--panel);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
+  .card .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .card .v{font-size:26px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+  .card .d{font-size:11px;margin-top:2px;color:var(--dim)}
+  .card .d.up{color:var(--green)} .card .d.mock{color:var(--amber)}
+  .card .spark{position:absolute;right:12px;bottom:10px;opacity:.5}
+  .card .accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan)}
+  .grid{display:grid;grid-template-columns:340px 1fr 320px;gap:14px;flex:1;min-height:420px}
+  .panel{background:var(--panel);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  .ph{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700;letter-spacing:.3px}
+  .ph .tag{margin-left:auto;font-weight:500;font-size:11px;color:var(--muted)}
+  .ph i{color:var(--cyan)}
+  .mock-tag{font-size:9.5px;color:var(--amber);border:1px solid #fbbf2444;border-radius:6px;padding:1px 5px;background:#fbbf2410;letter-spacing:.5px}
+  /* explorer */
+  .exp-ctl{display:flex;gap:8px;padding:10px}
+  .exp-ctl input{flex:1;background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:7px 10px;outline:none}
+  .rows{overflow:auto;flex:1}
+  .row{padding:9px 14px;border-bottom:1px solid #ffffff07;cursor:pointer;transition:.1s}
+  .row:hover{background:#ffffff06}
+  .row.active{background:#22d3ee12;box-shadow:inset 2px 0 var(--cyan)}
+  .row .name{font-weight:600;font-size:13.5px}
+  .row .meta{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;background:#15243c;color:var(--cyan);margin-right:6px;border:1px solid #22d3ee22}
+  /* detail / overview */
+  .body{overflow:auto;flex:1;padding:16px 18px}
+  .body h2{margin:0 0 4px;font-size:18px}
+  .body .sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
+  .body pre{background:#080d18;border:1px solid var(--line);border-radius:10px;padding:13px;overflow:auto;font-size:12px;line-height:1.5;color:#bcd2f2}
+  .empty{color:var(--dim);text-align:center;padding:40px 20px}
+  /* graph mock */
+  .graph{padding:8px;flex:1;display:grid;place-items:center}
+  .node{filter:drop-shadow(0 0 5px #22d3ee88)}
+  .gpulse{animation:gp 3s ease-in-out infinite}
+  @keyframes gp{50%{opacity:.4}}
+  .edge{stroke:#2a3f63;stroke-width:1.2}
+  /* activity */
+  .feed{overflow:auto;flex:1;padding:6px 0}
+  .ev{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid #ffffff06}
+  .ev .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;flex:none}
+  .ev .t{font-size:12.5px;line-height:1.4}
+  .ev .t .who{color:var(--violet);font-weight:600}
+  .ev .t .ent{color:var(--cyan)}
+  .ev .ago{color:var(--dim);font-size:11px;margin-top:1px}
+  .metrics{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+  .metric{background:var(--panel-solid);padding:12px 14px}
+  .metric .mk{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .metric .mv{font-size:18px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+  .bar{height:4px;border-radius:3px;background:#16213a;margin-top:8px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet))}
+  dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line2);border-radius:14px;padding:0;width:380px;box-shadow:0 20px 60px #000a}
+  dialog form{padding:20px;display:flex;flex-direction:column;gap:10px}
+  dialog h3{margin:0 0 6px} dialog label{font-size:11.5px;color:var(--muted)}
+  dialog input{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;color:var(--text)}
+  dialog .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#1d2a44;border-radius:6px}
 </style>
 </head>
 <body>
-  <header>
-    <h1>Aethvion<span style="color:var(--accent)">DB</span></h1>
-    <span class="ver" id="ver"></span>
-    <span class="spacer"></span>
-    <select id="dbSel" title="Database"></select>
-    <button class="primary" id="newBtn">+ Entity</button>
-  </header>
-
-  <div class="wrap">
-    <div class="list">
-      <div class="controls">
-        <input id="search" placeholder="Filter by name…" autocomplete="off">
-        <button id="reload" title="Reload">↻</button>
-      </div>
-      <div class="countbar" id="countbar">—</div>
-      <div class="rows" id="rows"></div>
-    </div>
-    <div class="detail" id="detail">
-      <div class="empty">Select an entity to view it.</div>
-    </div>
+<div class="app">
+  <div class="rail">
+    <div class="logo">A</div>
+    <div class="nav active" title="Dashboard">◈</div>
+    <div class="nav" title="Explorer">▤</div>
+    <div class="nav" title="Knowledge graph">⬡</div>
+    <div class="nav" title="Bakes">▦</div>
+    <div class="nav" title="Activity">≋</div>
+    <div class="sp"></div>
+    <div class="nav" title="Settings">⚙</div>
   </div>
 
-  <dialog id="newDlg">
-    <form method="dialog" id="newForm">
-      <h3>New entity</h3>
-      <label>Name</label>
-      <input id="nName" required autocomplete="off">
-      <label>Type</label>
-      <input id="nType" value="concept" autocomplete="off">
-      <div class="actions">
-        <button value="cancel">Cancel</button>
-        <button class="primary" id="nCreate" value="default">Create</button>
+  <div class="main">
+    <div class="top">
+      <h1>Aethvion<b>DB</b> <span style="color:var(--dim);font-weight:500">Console</span></h1>
+      <span class="pill"><span class="dot"></span> <span id="liveTxt">live</span></span>
+      <div class="gsearch">⌕ <input id="gsearch" placeholder="Ask the graph…  (coming soon)" disabled></div>
+      <span class="sp"></span>
+      <select class="sel" id="dbSel" title="Database"></select>
+      <button class="btn" id="bakeBtn" title="Bake a snapshot (mock)">▦ Bake</button>
+      <button class="btn cyan" id="newBtn">+ Entity</button>
+    </div>
+
+    <div class="content">
+      <!-- STAT CARDS -->
+      <div class="stats">
+        <div class="card"><div class="accent"></div><div class="k">Entities</div><div class="v" id="sEnt">—</div><div class="d up" id="sEntD">live</div>
+          <svg class="spark" width="58" height="22" viewBox="0 0 58 22"><polyline points="0,18 10,12 20,15 30,7 40,10 48,4 58,6" fill="none" stroke="#22d3ee" stroke-width="1.6"/></svg></div>
+        <div class="card"><div class="accent" style="background:var(--violet)"></div><div class="k">Relationships</div><div class="v" id="sRel">—</div><div class="d" id="sRelD">edges in graph</div></div>
+        <div class="card"><div class="accent" style="background:var(--green)"></div><div class="k">Databases</div><div class="v" id="sDb">—</div><div class="d">active</div></div>
+        <div class="card"><div class="accent" style="background:var(--amber)"></div><div class="k">Writes · 24h</div><div class="v">1,284</div><div class="d mock">mock</div>
+          <svg class="spark" width="58" height="22" viewBox="0 0 58 22"><polyline points="0,16 10,17 20,10 30,12 40,5 50,8 58,3" fill="none" stroke="#fbbf24" stroke-width="1.6"/></svg></div>
+        <div class="card"><div class="accent" style="background:var(--pink)"></div><div class="k">Vector coverage</div><div class="v">73<span style="font-size:15px">%</span></div><div class="d mock">mock</div></div>
       </div>
-    </form>
-  </dialog>
+
+      <div class="grid">
+        <!-- EXPLORER (wired) -->
+        <div class="panel">
+          <div class="ph"><i>▤</i> Explorer <span class="tag" id="expCount">—</span></div>
+          <div class="exp-ctl"><input id="search" placeholder="Filter by name…" autocomplete="off"><button class="btn" id="reload" title="Reload">↻</button></div>
+          <div class="rows" id="rows"><div class="empty">Loading…</div></div>
+        </div>
+
+        <!-- DETAIL / OVERVIEW (wired detail + mock graph) -->
+        <div class="panel">
+          <div class="ph"><i>◉</i> <span id="detTitle">Entity</span></div>
+          <div class="body" id="detail">
+            <div class="empty">Select an entity, or browse the live knowledge graph below.</div>
+            <div class="ph" style="border:none;padding:18px 0 6px"><i>⬡</i> Knowledge graph <span class="mock-tag">PREVIEW</span></div>
+            <div class="graph">
+              <svg width="100%" height="220" viewBox="0 0 360 220" id="mockGraph"></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: ACTIVITY + SYSTEM (mock) -->
+        <div class="panel">
+          <div class="ph"><i>≋</i> Activity <span class="mock-tag">MOCK</span></div>
+          <div class="feed" id="feed"></div>
+          <div class="ph" style="border-top:1px solid var(--line)"><i>◎</i> System <span class="mock-tag" id="sysTag">LIVE+MOCK</span></div>
+          <div class="metrics">
+            <div class="metric"><div class="mk">Query latency</div><div class="mv" id="mLat">— ms</div><div class="bar"><i style="width:18%"></i></div></div>
+            <div class="metric"><div class="mk">Cache</div><div class="mv">warm</div><div class="bar"><i style="width:88%"></i></div></div>
+            <div class="metric"><div class="mk">Snapshot age</div><div class="mv">4s</div><div class="bar"><i style="width:30%"></i></div></div>
+            <div class="metric"><div class="mk">Agents online</div><div class="mv">7</div><div class="bar"><i style="width:64%"></i></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="newDlg"><form method="dialog" id="newForm">
+  <h3>New entity</h3>
+  <label>Name</label><input id="nName" required autocomplete="off">
+  <label>Type</label><input id="nType" value="concept" autocomplete="off">
+  <div class="actions"><button class="btn" value="cancel">Cancel</button><button class="btn cyan" value="default">Create</button></div>
+</form></dialog>
 
 <script>
-const API = "/api/v1";
-let entities = [];
-let activeId = null;
+const API="/api/v1"; let entities=[], activeId=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-async function jget(url, opts) {
-  const r = await fetch(url, opts);
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok || j.ok === false) throw new Error((j.detail) || ("HTTP " + r.status));
+async function jget(url,opts){
+  const t=performance.now();
+  const r=await fetch(url,opts); const j=await r.json().catch(()=>({}));
+  $("mLat").textContent=(performance.now()-t).toFixed(0)+" ms";
+  if(!r.ok||j.ok===false) throw new Error(j.detail||("HTTP "+r.status));
   return j.data;
 }
-const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-async function loadDatabases() {
-  const d = await jget(`${API}/`);
-  document.getElementById("ver").textContent = d.version;
-  const sel = document.getElementById("dbSel");
-  sel.innerHTML = "";
-  const dbs = d.databases.length ? d.databases : [{name: "default", entity_count: 0}];
-  for (const db of dbs) {
-    const o = document.createElement("option");
-    o.value = db.name; o.textContent = `${db.name} (${db.entity_count})`;
-    sel.appendChild(o);
-  }
+async function loadDatabases(){
+  const d=await jget(`${API}/`);
+  const sel=$("dbSel"); sel.innerHTML="";
+  const dbs=d.databases.length?d.databases:[{name:"default",entity_count:0}];
+  for(const db of dbs){const o=document.createElement("option");o.value=db.name;o.textContent=`${db.name} · ${db.entity_count}`;sel.appendChild(o);}
+  $("sDb").textContent=dbs.length;
   await loadEntities();
 }
-
-async function loadEntities() {
-  const db = document.getElementById("dbSel").value;
-  const d = await jget(`${API}/${encodeURIComponent(db)}/raw/entities?limit=500`);
-  entities = d.entities || [];
-  document.getElementById("countbar").textContent =
-    `${d.total ?? entities.length} entities` + (d.total > entities.length ? ` (showing ${entities.length})` : "");
+async function loadEntities(){
+  const db=$("dbSel").value;
+  const d=await jget(`${API}/${encodeURIComponent(db)}/raw/entities?limit=500`);
+  entities=d.entities||[];
+  const rel=entities.reduce((a,e)=>a+(((e.sections||{}).relations||[]).length),0);
+  $("sEnt").textContent=(d.total??entities.length).toLocaleString();
+  $("sRel").textContent=rel.toLocaleString();
+  $("expCount").textContent=(d.total??entities.length)+" total";
   render();
 }
-
-function render() {
-  const q = document.getElementById("search").value.trim().toLowerCase();
-  const rows = document.getElementById("rows");
-  const list = q ? entities.filter(e => (e.name || e.id || "").toLowerCase().includes(q)) : entities;
-  if (!list.length) { rows.innerHTML = `<div class="empty">No entities.</div>`; return; }
-  rows.innerHTML = list.map(e => `
-    <div class="row ${e.id === activeId ? "active" : ""}" data-id="${esc(e.id)}">
-      <div class="name">${esc(e.name || e.id)}</div>
-      <div class="meta"><span class="badge">${esc(e.type || "other")}</span>${esc(e.status || "")}</div>
-    </div>`).join("");
-  rows.querySelectorAll(".row").forEach(r =>
-    r.addEventListener("click", () => showEntity(r.dataset.id)));
+function render(){
+  const q=$("search").value.trim().toLowerCase(), rows=$("rows");
+  const list=q?entities.filter(e=>(e.name||e.id||"").toLowerCase().includes(q)):entities;
+  if(!list.length){rows.innerHTML=`<div class="empty">No entities yet.<br>Create one with + Entity.</div>`;return;}
+  rows.innerHTML=list.map(e=>`<div class="row ${e.id===activeId?"active":""}" data-id="${esc(e.id)}">
+    <div class="name">${esc(e.name||e.id)}</div>
+    <div class="meta"><span class="badge">${esc(e.type||"other")}</span>${esc(e.status||"")}</div></div>`).join("");
+  rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>showEntity(r.dataset.id)));
 }
-
-async function showEntity(id) {
-  activeId = id; render();
-  const db = document.getElementById("dbSel").value;
-  const detail = document.getElementById("detail");
-  detail.innerHTML = `<div class="empty">Loading…</div>`;
-  try {
-    const e = await jget(`${API}/${encodeURIComponent(db)}/raw/entities/${encodeURIComponent(id)}`);
-    const core = (e.sections && e.sections.core) || {};
-    detail.innerHTML = `
-      <h2>${esc(e.name || e.id)}</h2>
-      <div class="sub"><span class="badge">${esc(e.type || "other")}</span>
-        ${esc(e.kind || "")} · ${esc(e.status || "")} · v${esc(e.version || 1)} · ${esc(e.id)}</div>
-      ${core.summary ? `<p>${esc(core.summary)}</p>` : ""}
-      <pre>${esc(JSON.stringify(e, null, 2))}</pre>`;
-  } catch (err) {
-    detail.innerHTML = `<div class="empty">Error: ${esc(err.message)}</div>`;
-  }
+async function showEntity(id){
+  activeId=id; render();
+  const db=$("dbSel").value, detail=$("detail");
+  $("detTitle").textContent="Entity";
+  detail.innerHTML=`<div class="empty">Loading…</div>`;
+  try{
+    const e=await jget(`${API}/${encodeURIComponent(db)}/raw/entities/${encodeURIComponent(id)}`);
+    const core=(e.sections&&e.sections.core)||{};
+    $("detTitle").textContent=e.name||"Entity";
+    detail.innerHTML=`<h2>${esc(e.name||e.id)}</h2>
+      <div class="sub"><span class="badge">${esc(e.type||"other")}</span> ${esc(e.kind||"")} · ${esc(e.status||"")} · v${esc(e.version||1)} · <span style="color:var(--dim)">${esc(e.id)}</span></div>
+      ${core.summary?`<p>${esc(core.summary)}</p>`:""}
+      <pre>${esc(JSON.stringify(e,null,2))}</pre>`;
+  }catch(err){detail.innerHTML=`<div class="empty">Error: ${esc(err.message)}</div>`;}
 }
-
-async function createEntity(name, type) {
-  const db = document.getElementById("dbSel").value;
-  await jget(`${API}/${encodeURIComponent(db)}/raw/entities/upsert`, {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({name, type}),
-  });
+async function createEntity(name,type){
+  const db=$("dbSel").value;
+  await jget(`${API}/${encodeURIComponent(db)}/raw/entities/upsert`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,type})});
   await loadEntities();
 }
 
-document.getElementById("dbSel").addEventListener("change", loadEntities);
-document.getElementById("reload").addEventListener("click", loadEntities);
-document.getElementById("search").addEventListener("input", render);
-document.getElementById("newBtn").addEventListener("click", () => document.getElementById("newDlg").showModal());
-document.getElementById("newForm").addEventListener("submit", (ev) => {
-  if (ev.submitter && ev.submitter.value === "cancel") return;
-  const name = document.getElementById("nName").value.trim();
-  const type = document.getElementById("nType").value.trim() || "concept";
-  if (name) createEntity(name, type).catch(e => alert(e.message));
-  document.getElementById("nName").value = "";
+/* ── mock graph ── */
+function drawMockGraph(){
+  const N=[[60,50],[150,40],[250,70],[300,130],[210,160],[110,150],[40,120],[180,100]];
+  const E=[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0],[7,1],[7,4],[7,5],[2,7]];
+  const col=["#22d3ee","#a78bfa","#34d399","#fbbf24","#f472b6","#3b82f6","#22d3ee","#a78bfa"];
+  let s="";
+  for(const[a,b]of E)s+=`<line class="edge" x1="${N[a][0]}" y1="${N[a][1]}" x2="${N[b][0]}" y2="${N[b][1]}"/>`;
+  N.forEach((p,i)=>{s+=`<circle class="node gpulse" cx="${p[0]}" cy="${p[1]}" r="${i===7?9:6}" fill="${col[i]}" style="animation-delay:${i*0.3}s"/>`;});
+  $("mockGraph").innerHTML=s;
+}
+/* ── mock activity feed ── */
+function mockFeed(){
+  const acts=[["✦","#22d3ee","<span class='who'>agent-7</span> created <span class='ent'>RateLimiter</span>","12s"],
+    ["⊕","#a78bfa","<span class='who'>distiller</span> expanded <span class='ent'>AuthFlow</span> (+4 stubs)","48s"],
+    ["⇄","#34d399","linked <span class='ent'>PaymentService</span> → <span class='ent'>Ledger</span>","2m"],
+    ["✎","#fbbf24","<span class='who'>analyst</span> updated <span class='ent'>Q3 Strategy</span>","5m"],
+    ["▦","#f472b6","baked snapshot <span class='ent'>vectors.v4</span>","9m"],
+    ["✦","#22d3ee","<span class='who'>agent-3</span> created <span class='ent'>Invoice</span>","14m"],
+    ["⇄","#3b82f6","linked <span class='ent'>CaseC</span> overrules <span class='ent'>CaseA</span>","21m"]];
+  $("feed").innerHTML=acts.map(a=>`<div class="ev"><div class="ic" style="background:${a[1]}1a;color:${a[1]}">${a[0]}</div>
+    <div><div class="t">${a[2]}</div><div class="ago">${a[3]} ago</div></div></div>`).join("");
+}
+
+$("dbSel").addEventListener("change",loadEntities);
+$("reload").addEventListener("click",loadEntities);
+$("search").addEventListener("input",render);
+$("newBtn").addEventListener("click",()=>$("newDlg").showModal());
+$("bakeBtn").addEventListener("click",()=>alert("Bake factory — coming soon. Snapshots are baked from the raw entries into purpose-built views."));
+document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>{
+  document.querySelectorAll(".rail .nav").forEach(x=>x.classList.remove("active"));n.classList.add("active");
+}));
+$("newForm").addEventListener("submit",ev=>{
+  if(ev.submitter&&ev.submitter.value==="cancel")return;
+  const name=$("nName").value.trim(),type=$("nType").value.trim()||"concept";
+  if(name)createEntity(name,type).catch(e=>alert(e.message));$("nName").value="";
 });
 
-loadDatabases().catch(e => {
-  document.getElementById("detail").innerHTML = `<div class="empty">Failed to load: ${esc(e.message)}</div>`;
-});
+drawMockGraph(); mockFeed();
+loadDatabases().catch(e=>{$("detail").innerHTML=`<div class="empty">Failed to load: ${esc(e.message)}</div>`;$("liveTxt").textContent="offline";document.querySelector(".dot").style.background="var(--pink)";});
 </script>
 </body>
 </html>
