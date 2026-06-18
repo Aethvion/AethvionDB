@@ -5,11 +5,38 @@
 > uniform envelope, wired into a graph, deduplicated by name, and queryable in
 > milliseconds. **Runs entirely on your machine.**
 
-> ⚠️ **Early development.** AethvionDB currently lives and is battle-tested
-> inside [Aethvion Suite](https://github.com/Aethvion/Aethvion-Suite); this
-> repository is the home of the standalone engine as it is extracted. The API
-> and storage format are stabilising and may change before the first tagged
-> release.
+> ⚠️ **Early development (v0.1).** The engine was battle-tested inside
+> [Aethvion Suite](https://github.com/Aethvion/Aethvion-Suite) and is now
+> extracted here as a standalone package. The API and storage format may still
+> change before a stable release.
+
+---
+
+## Quick start
+
+```bash
+# From a checkout (editable install)
+pip install -e ".[dev]"
+
+# Run the HTTP API (defaults to 127.0.0.1:7475)
+aethviondb-server
+#   docs at  http://127.0.0.1:7475/docs
+#   API at   http://127.0.0.1:7475/api/v1
+```
+
+Data is stored under `~/.aethvion/aethviondb` by default (override with the
+`AETHVIONDB_DATA_DIR` environment variable). Use it as a library, too:
+
+```python
+from aethviondb import EntityWriter
+w = EntityWriter()                       # default database
+entity, created = w.create("Ada Lovelace", entity_type="person")
+print(w.get_by_name("Ada Lovelace")["id"])
+```
+
+The optional **intelligence** features (distill text → entity, expand, generate
+embeddings) require an injected LLM/embedding backend — the deterministic core
+(entities, graph, search, validation) works without one.
 
 ---
 

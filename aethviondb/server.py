@@ -1,0 +1,56 @@
+"""
+aethviondb/server.py
+Standalone HTTP server for AethvionDB — mounts the versioned /api/v1 API.
+
+Run:
+    aethviondb-server
+    # or, against a repo checkout:
+    uvicorn aethviondb.server:app --reload --port 7475
+
+The API is open by default; configure per-database API keys via the
+/api/v1/{db}/keys endpoints to require authentication.
+"""
+from __future__ import annotations
+
+import os
+
+from fastapi import FastAPI
+
+from aethviondb import __version__
+from aethviondb.api_v1.router import router as v1_router
+from aethviondb.config import DATA_DIR
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="AethvionDB",
+        version=__version__,
+        description="Agent-first knowledge database — typed entity graph over /api/v1.",
+    )
+    app.include_router(v1_router)
+
+    @app.get("/health", tags=["meta"])
+    async def health():
+        return {"status": "ok", "service": "aethviondb",
+                "version": __version__, "data_dir": str(DATA_DIR)}
+
+    @app.get("/", include_in_schema=False)
+    async def root():
+        return {"service": "AethvionDB", "version": __version__,
+                "docs": "/docs", "api": "/api/v1"}
+
+    return app
+
+
+app = create_app()
+
+
+def main() -> None:
+    import uvicorn
+    host = os.environ.get("AETHVIONDB_HOST", "127.0.0.1")
+    port = int(os.environ.get("AETHVIONDB_PORT", "7475"))
+    uvicorn.run("aethviondb.server:app", host=host, port=port)
+
+
+if __name__ == "__main__":
+    main()
