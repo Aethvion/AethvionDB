@@ -119,6 +119,7 @@
       <div class="gsearch">⌕ <input id="gsearch" placeholder="Ask the graph…  (coming soon)" disabled></div>
       <span class="sp"></span>
       <select class="sel" id="dbSel" title="Database"></select>
+      <button class="btn" id="impBtn" title="Import an external database">⤓ Import</button>
       <button class="btn" id="bakeBtn" title="Bake a snapshot (coming soon)">▦ Bake</button>
       <button class="btn cyan" id="newBtn">+ Entity</button>
     </div>
@@ -162,6 +163,23 @@
   <label>Name</label><input id="nName" required autocomplete="off">
   <label>Type</label><input id="nType" value="concept" autocomplete="off">
   <div class="actions"><button class="btn" value="cancel">Cancel</button><button class="btn cyan" value="default">Create</button></div>
+</form></dialog>
+
+<dialog id="impDlg" style="width:440px"><form id="impForm" method="dialog">
+  <h3>Import database</h3>
+  <div style="font-size:11.5px;color:var(--muted);margin:-2px 0 4px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
+  <label>Source type</label>
+  <select id="impType" class="sel"><option value="sqlite">SQLite (.db / .sqlite)</option></select>
+  <label>Source file path (on this machine)</label>
+  <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\chinook.db" autocomplete="off">
+  <label>Target database name</label>
+  <input id="impDb" placeholder="chinook" autocomplete="off">
+  <div id="impOut" style="max-height:200px;overflow:auto;font-size:12px;margin-top:6px;border-top:1px solid var(--line);padding-top:8px;display:none"></div>
+  <div class="actions">
+    <button class="btn" value="cancel" type="button" id="impClose">Close</button>
+    <button class="btn" type="button" id="impPrev">Preview</button>
+    <button class="btn cyan" type="button" id="impRun">Import</button>
+  </div>
 </form></dialog>
 
 <script>
@@ -289,11 +307,39 @@ async function createEntity(name,type){
   await loadEntities();
 }
 
+/* ── Import an external database ── */
+function impBody(){return {source_type:$("impType").value, source:$("impPath").value.trim(), db:$("impDb").value.trim()};}
+async function importPreview(){
+  const out=$("impOut"); out.style.display="block"; out.innerHTML="Reading source…";
+  const b=impBody(); if(!b.source){out.innerHTML="<span style='color:var(--pink)'>Enter a source file path.</span>";return;}
+  try{
+    const r=await fetch("/api/import/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+    out.innerHTML=`<div style="color:var(--cyan);margin-bottom:6px">${j.est_entities} entities · ${j.est_relations} relations · ${j.tables.length} tables</div>`+
+      j.tables.map(t=>`<div style="padding:2px 0"><b>${esc(t.name)}</b> <span style="color:var(--muted)">· ${t.rows} rows</span>${t.foreign_keys.length?` <span style="color:var(--violet)">· ${t.foreign_keys.map(esc).join(", ")}</span>`:""}</div>`).join("");
+  }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
+}
+async function importRun(){
+  const out=$("impOut"); out.style.display="block"; out.innerHTML="Importing…";
+  const b=impBody(); if(!b.source||!b.db){out.innerHTML="<span style='color:var(--pink)'>Source path and target name are required.</span>";return;}
+  try{
+    const r=await fetch("/api/import/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.detail||("HTTP "+r.status));
+    out.innerHTML=`<span style="color:var(--green)">Imported ${j.entities} entities, ${j.relations} relations in ${j.elapsed_s}s into "${esc(j.db)}".</span>`;
+    await loadDatabases();
+    const sel=$("dbSel"); if([...sel.options].some(o=>o.value===b.db)){sel.value=b.db; await loadEntities();}
+  }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
+}
+
 $("dbSel").addEventListener("change",loadEntities);
 $("reload").addEventListener("click",loadEntities);
 $("search").addEventListener("input",render);
 $("newBtn").addEventListener("click",()=>$("newDlg").showModal());
 $("bakeBtn").addEventListener("click",()=>alert("Bake factory — coming soon. Snapshots are baked from the raw entries into purpose-built views."));
+$("impBtn").addEventListener("click",()=>{$("impOut").style.display="none";$("impDlg").showModal();});
+$("impClose").addEventListener("click",()=>$("impDlg").close());
+$("impPrev").addEventListener("click",importPreview);
+$("impRun").addEventListener("click",importRun);
 document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>{document.querySelectorAll(".rail .nav").forEach(x=>x.classList.remove("active"));n.classList.add("active");}));
 $("newForm").addEventListener("submit",ev=>{if(ev.submitter&&ev.submitter.value==="cancel")return;
   const name=$("nName").value.trim(),type=$("nType").value.trim()||"concept";

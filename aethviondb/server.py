@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 
 from aethviondb import __version__
 from aethviondb.api_v1.router import router as v1_router
+from aethviondb.importers.api import router as import_router
 from aethviondb.config import DATA_DIR
 
 _WEB = Path(__file__).parent / "web"
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
         description="Agent-first knowledge database — typed entity graph over /api/v1.",
     )
     app.include_router(v1_router)
+    app.include_router(import_router)
 
     @app.get("/health", tags=["meta"])
     async def health():
