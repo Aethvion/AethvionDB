@@ -148,7 +148,7 @@
           <div class="ph" style="border-top:1px solid var(--line)"><i>◎</i> System <span class="live-tag">LIVE</span></div>
           <div class="metrics">
             <div class="metric"><div class="mk">Query latency</div><div class="mv" id="mLat">— ms</div><div class="bar"><i id="mLatBar" style="width:12%"></i></div></div>
-            <div class="metric"><div class="mk">Entity types</div><div class="mv" id="mTypes">—</div><div class="bar"><i id="mTypesBar" style="width:30%"></i></div></div>
+            <div class="metric"><div class="mk">Kinds</div><div class="mv" id="mTypes">—</div><div class="bar"><i id="mTypesBar" style="width:30%"></i></div></div>
             <div class="metric"><div class="mk">Stubs</div><div class="mv" id="mStubs">—</div><div class="bar"><i id="mStubsBar" style="width:20%"></i></div></div>
             <div class="metric"><div class="mk">With vectors</div><div class="mv" id="mVec">—</div><div class="bar"><i id="mVecBar" style="width:40%"></i></div></div>
           </div>
@@ -188,6 +188,11 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const TYPE_COLOR={module:"#22d3ee",class:"#a78bfa",function:"#34d399",concept:"#3b82f6",person:"#f472b6",service:"#fbbf24",decision:"#f59e0b",event:"#22d3ee"};
 const tcol=t=>TYPE_COLOR[t]||"#7aa2d6";
+const PAL=["#22d3ee","#a78bfa","#34d399","#3b82f6","#f472b6","#fbbf24","#2dd4bf","#c084fc"];
+function ccol(s){let h=0;s=String(s||"other");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return PAL[h%PAL.length];}
+/* The fine classifier: kind (e.g. Album) when present, else the coarse type. */
+const clsOf=e=>e.kind||e.type||"other";
+const colOf=e=>(e.type&&e.type!=="other"&&TYPE_COLOR[e.type])?TYPE_COLOR[e.type]:ccol(e.kind||e.type||"other");
 function relTime(iso){ if(!iso)return""; const s=(Date.now()-new Date(iso).getTime())/1000;
   if(s<60)return Math.max(0,s|0)+"s"; if(s<3600)return (s/60|0)+"m"; if(s<86400)return (s/3600|0)+"h"; return (s/86400|0)+"d"; }
 
@@ -222,7 +227,7 @@ function computeStats(total){
   const rel=entities.reduce((a,e)=>a+(((e.sections||{}).relations||[]).length),0);
   const w24=entities.filter(e=>{const t=e.updated||e.created;return t&&(now-new Date(t).getTime())<864e5;}).length;
   const vec=entities.filter(e=>{const v=(e.sections||{}).vectors;return v&&Object.keys(v).length;}).length;
-  const types=new Set(entities.map(e=>e.type||"other")).size;
+  const types=new Set(entities.map(clsOf)).size;
   const stubs=entities.filter(e=>e.status==="stub").length;
   const n=entities.length||1;
   $("sEnt").textContent=(total).toLocaleString();
@@ -241,7 +246,7 @@ function render(){
   if(!list.length){rows.innerHTML=`<div class="empty">No entities yet.<br>Create one with + Entity.</div>`;return;}
   rows.innerHTML=list.map(e=>`<div class="row ${e.id===activeId?"active":""}" data-id="${esc(e.id)}">
     <div class="name">${esc(e.name||e.id)}</div>
-    <div class="meta"><span class="badge" style="color:${tcol(e.type)};border-color:${tcol(e.type)}33">${esc(e.type||"other")}</span>${esc(e.status||"")}</div></div>`).join("");
+    <div class="meta"><span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span>${esc(e.status||"")}</div></div>`).join("");
   rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>showEntity(r.dataset.id)));
 }
 
@@ -251,10 +256,10 @@ function renderFeed(){
     .sort((a,b)=>String(b.updated||b.created).localeCompare(String(a.updated||a.created))).slice(0,9);
   if(!recent.length){$("feed").innerHTML=`<div class="empty">No activity yet.</div>`;return;}
   $("feed").innerHTML=recent.map(e=>{
-    const fresh=e.created===e.updated; const c=tcol(e.type);
+    const fresh=e.created===e.updated; const c=colOf(e);
     return `<div class="ev" data-id="${esc(e.id)}"><div class="ic" style="background:${c}1a;color:${c}">${fresh?"✦":"✎"}</div>
       <div><div class="t"><span class="who">${esc(e.source||"system")}</span> ${fresh?"created":"updated"} <span class="ent">${esc(e.name||e.id)}</span></div>
-      <div class="ago">${relTime(e.updated||e.created)} ago · ${esc(e.type||"other")}</div></div></div>`;
+      <div class="ago">${relTime(e.updated||e.created)} ago · ${esc(clsOf(e))}</div></div></div>`;
   }).join("");
   $("feed").querySelectorAll(".ev").forEach(r=>r.addEventListener("click",()=>showEntity(r.dataset.id)));
 }
@@ -275,7 +280,7 @@ function renderOverview(){
   nodes.forEach((n,i)=>{const a=(i/nodes.length)*2*Math.PI-Math.PI/2; pos.set(n.id, nodes.length===1?[cx,cy]:[cx+R*Math.cos(a),cy+R*Math.sin(a)]);});
   let svg="";
   for(const[a,b]of edges){ if(ids.has(a)&&ids.has(b)){const p=pos.get(a),q=pos.get(b); svg+=`<line class="edge" x1="${p[0].toFixed(0)}" y1="${p[1].toFixed(0)}" x2="${q[0].toFixed(0)}" y2="${q[1].toFixed(0)}"/>`;} }
-  nodes.forEach((n,i)=>{const[x,y]=pos.get(n.id);const c=tcol(n.type);const r=6+Math.min(5,(deg.get(n.id)||0));
+  nodes.forEach((n,i)=>{const[x,y]=pos.get(n.id);const c=colOf(n);const r=6+Math.min(5,(deg.get(n.id)||0));
     svg+=`<g class="gnode" data-id="${esc(n.id)}"><circle class="gpulse" cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r}" fill="${c}" style="filter:drop-shadow(0 0 5px ${c}aa);animation-delay:${i*0.2}s"/><title>${esc(n.name||n.id)}</title></g>`;});
   const edgeN=edges.filter(([a,b])=>ids.has(a)&&ids.has(b)).length;
   $("detail").innerHTML=`<div style="color:var(--muted);font-size:12px;margin-bottom:6px">${nodes.length} nodes · ${edgeN} edges${entities.length>16?` · top ${nodes.length} of ${entities.length}`:""}</div>
@@ -294,7 +299,7 @@ async function showEntity(id){
     $("detTitle").textContent=e.name||"Entity"; $("detTag").innerHTML="";
     detail.innerHTML=`<span class="back" id="backBtn">← graph</span>
       <h2>${esc(e.name||e.id)}</h2>
-      <div class="sub"><span class="badge" style="color:${tcol(e.type)};border-color:${tcol(e.type)}33">${esc(e.type||"other")}</span> ${esc(e.kind||"")} · ${esc(e.status||"")} · v${esc(e.version||1)} · ${rels.length} relations · <span style="color:var(--dim)">${esc(e.id)}</span></div>
+      <div class="sub"><span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span> ${e.kind&&e.type&&e.type!=="other"?esc(e.type)+" · ":""}${esc(e.status||"")} · v${esc(e.version||1)} · ${rels.length} relations · <span style="color:var(--dim)">${esc(e.id)}</span></div>
       ${core.summary?`<p>${esc(core.summary)}</p>`:""}
       <pre>${esc(JSON.stringify(e,null,2))}</pre>`;
     $("backBtn").addEventListener("click",renderOverview);
