@@ -12,3 +12,4 @@ venv/
 env/
 
 # Runtime data lives outside the repo by default (~/.aethvion/aethviondb)
+/benchmark_databases
