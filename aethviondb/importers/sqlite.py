@@ -38,7 +38,19 @@ class SQLiteImporter(BaseImporter):
         super().__init__(source)
         self.path = Path(source)
         if not self.path.exists():
-            raise FileNotFoundError(f"SQLite file not found: {source}")
+            raise FileNotFoundError(f"No file at: {source}")
+        if not self.path.is_file():
+            raise ValueError(
+                f"That path is a folder, not a database file. Point at a .db / "
+                f".sqlite file inside it (e.g. {self.path / 'sample.db'})."
+            )
+        try:
+            with open(self.path, "rb") as f:
+                header = f.read(16)
+        except OSError as e:
+            raise ValueError(f"Could not read file: {e}")
+        if header != b"SQLite format 3\x00":
+            raise ValueError(f"Not a SQLite database file (unexpected header): {self.path.name}")
 
     def _connect(self) -> sqlite3.Connection:
         con = sqlite3.connect(f"file:{self.path}?mode=ro", uri=True)

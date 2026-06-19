@@ -32,7 +32,7 @@ def _importer(req: ImportRequest):
         raise HTTPException(400, f"Unknown source type {req.source_type!r}. Available: {list(IMPORTERS)}")
     try:
         return cls(req.source)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(400, f"Could not open source: {e}")
@@ -54,7 +54,10 @@ async def sources():
 async def preview(req: ImportRequest):
     """Describe what would be imported — no writes."""
     imp = _importer(req)
-    return await asyncio.to_thread(imp.preview)
+    try:
+        return await asyncio.to_thread(imp.preview)
+    except Exception as e:
+        raise HTTPException(400, f"Preview failed: {e}")
 
 
 @router.post("/run")
@@ -62,5 +65,8 @@ async def run(req: ImportRequest):
     """Run the import into the target database. Returns a summary."""
     imp = _importer(req)
     root = _db_root(req.db)
-    summary = await asyncio.to_thread(imp.run, root, req.db)
+    try:
+        summary = await asyncio.to_thread(imp.run, root, req.db)
+    except Exception as e:
+        raise HTTPException(400, f"Import failed: {e}")
     return summary.__dict__
