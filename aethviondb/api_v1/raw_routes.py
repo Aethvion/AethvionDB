@@ -807,6 +807,104 @@ async def vector_similarity_search(
     )
 
 
+# Embedding generation (vectorize)
+
+class VectorizeRequest(BaseModel):
+    model:         str  = "all-MiniLM-L6-v2"
+    force_rewrite: bool = False
+    include_stubs: bool = True
+
+
+@router.get("/{db}/raw/vectorize/models")
+async def vectorize_models(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """List the embedding models available for generation (local + API providers)."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    from aethviondb.vectorizer import EMBEDDING_MODELS, EMBEDDING_COSTS
+    models = [
+        {
+            "model":       name,
+            "provider":    info.get("provider"),
+            "dimensions":  info.get("dimensions"),
+            "description": info.get("description", ""),
+            "cost_per_1m": EMBEDDING_COSTS.get(name, 0.0),
+        }
+        for name, info in EMBEDDING_MODELS.items()
+    ]
+    return envelope({"models": models}, db=db, took_start=t)
+
+
+@router.get("/{db}/raw/vectorize/status")
+async def vectorize_status(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Current vectorization progress (reads the VECINFO sidecar)."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb.vectorizer import read_vec_info, is_vectorizing
+    info = read_vec_info(root) or {}
+    return envelope({"running": is_vectorizing(root), "info": info}, db=db, took_start=t)
+
+
+@router.post("/{db}/raw/vectorize")
+async def start_vectorize(
+    db:  str,
+    req: VectorizeRequest,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Start a background pass that embeds every non-deleted entity and stores
+    the vector on the raw entity (sections.vectors). Progress via /vectorize/status."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    _ensure(db)
+
+    from aethviondb.vectorizer import (
+        vectorize_all, is_vectorizing, _vec_tasks, EMBEDDING_MODELS,
+    )
+
+    if is_vectorizing(root):
+        raise HTTPException(409, "A vectorization pass is already running for this database.")
+    if req.model not in EMBEDDING_MODELS:
+        raise HTTPException(400, f"Unknown model {req.model!r}. See /vectorize/models.")
+
+    w    = _writer(db)
+    key  = str(root)
+    task = asyncio.create_task(
+        vectorize_all(
+            root, w, req.model,
+            force_rewrite=req.force_rewrite,
+            include_stubs=req.include_stubs,
+        )
+    )
+    _vec_tasks[key] = task
+    task.add_done_callback(lambda _: _vec_tasks.pop(key, None))
+
+    return envelope({"started": True, "model": req.model}, db=db, took_start=t)
+
+
+@router.post("/{db}/raw/vectorize/cancel")
+async def cancel_vectorize_endpoint(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Cancel a running vectorization pass."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb.vectorizer import cancel_vectorize
+    return envelope(cancel_vectorize(root), db=db, took_start=t)
+
+
 # Graph
 
 def _bfs(writer, start_id: str, depth: int, direction: str,

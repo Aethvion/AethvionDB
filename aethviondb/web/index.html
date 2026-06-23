@@ -8,7 +8,7 @@
   :root{
     --bg:#06080f; --bg2:#0a0e1a; --panel:#0d1322cc; --panel-solid:#0d1322;
     --line:#1a2336; --line2:#243150; --text:#dbe6f7; --muted:#6f8099; --dim:#46566f;
-    --cyan:#22d3ee; --blue:#3b82f6; --violet:#a78bfa; --green:#34d399; --amber:#fbbf24; --pink:#f472b6;
+    --cyan:#22d3ee; --blue:#3b82f6; --violet:#a78bfa; --green:#34d399; --amber:#fbbf24; --pink:#f472b6; --red:#f87171;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -24,9 +24,11 @@
   .app{display:grid; grid-template-columns:62px 1fr; height:100vh}
   .rail{background:var(--bg2); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:6px}
   .logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:15px;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#04111c;margin-bottom:10px;box-shadow:0 0 18px #22d3ee55}
-  .nav{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--muted);cursor:pointer;font-size:16px;border:1px solid transparent;transition:.15s}
+  .nav{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--muted);cursor:pointer;font-size:16px;border:1px solid transparent;transition:.15s;position:relative}
   .nav:hover{color:var(--text);background:#ffffff08}
   .nav.active{color:var(--cyan);background:#22d3ee14;border-color:#22d3ee44;box-shadow:0 0 14px #22d3ee22}
+  .nav .lbl{position:absolute;left:48px;background:var(--panel-solid);border:1px solid var(--line2);border-radius:7px;padding:4px 9px;font-size:11.5px;color:var(--text);white-space:nowrap;opacity:0;pointer-events:none;transform:translateX(-4px);transition:.12s;z-index:30}
+  .nav:hover .lbl{opacity:1;transform:translateX(0)}
   .rail .sp{flex:1}
   .main{display:grid;grid-template-rows:54px 1fr;min-width:0}
   .top{display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0c121f,#0a0e1a)}
@@ -35,16 +37,19 @@
   .pill{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);border:1px solid var(--line2);border-radius:999px;padding:4px 10px;background:#0e1626}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
   @keyframes pulse{50%{opacity:.35}}
-  .gsearch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:#0c1422;border:1px solid var(--line2);border-radius:10px;padding:7px 12px;color:var(--dim)}
-  .gsearch input{flex:1;background:none;border:none;outline:none;color:var(--text);font:inherit}
   .top .sp{flex:1}
-  select,button,input{font:inherit;color:var(--text)}
+  select,button,input,textarea{font:inherit;color:var(--text)}
   .sel{background:#0c1422;border:1px solid var(--line2);border-radius:9px;padding:7px 10px;outline:none}
-  .btn{background:#0e1626;border:1px solid var(--line2);border-radius:9px;padding:7px 12px;cursor:pointer;color:var(--text)}
+  .btn{background:#0e1626;border:1px solid var(--line2);border-radius:9px;padding:7px 12px;cursor:pointer;color:var(--text);transition:.12s}
   .btn:hover{border-color:var(--cyan);color:var(--cyan)}
   .btn.cyan{background:linear-gradient(135deg,var(--cyan),var(--blue));border:none;color:#04111c;font-weight:700}
   .btn.cyan:hover{filter:brightness(1.1);color:#04111c}
-  .content{overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+  .btn.danger:hover{border-color:var(--red);color:var(--red)}
+  .btn.sm{padding:4px 9px;font-size:12px;border-radius:8px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .content{overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px;min-height:0}
+  .view{display:none;flex-direction:column;gap:14px;flex:1;min-height:0}
+  .view.active{display:flex}
   .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
   .card{background:var(--panel);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;padding:14px 16px;position:relative;overflow:hidden}
   .card .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
@@ -53,32 +58,48 @@
   .card .accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan)}
   .card .spark{position:absolute;right:12px;bottom:10px;opacity:.5}
   .grid{display:grid;grid-template-columns:340px 1fr 320px;gap:14px;flex:1;min-height:430px}
+  .grid2{display:grid;grid-template-columns:360px 1fr;gap:14px;flex:1;min-height:0}
   .panel{background:var(--panel);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .ph{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700;letter-spacing:.3px}
   .ph .tag{margin-left:auto;font-weight:500;font-size:11px;color:var(--muted)}
-  .ph i{color:var(--cyan)}
+  .ph i{color:var(--cyan);font-style:normal}
   .live-tag{font-size:9.5px;color:var(--green);border:1px solid #34d39944;border-radius:6px;padding:1px 5px;background:#34d39910;letter-spacing:.5px}
-  .mock-tag{font-size:9.5px;color:var(--amber);border:1px solid #fbbf2444;border-radius:6px;padding:1px 5px;background:#fbbf2410;letter-spacing:.5px}
-  .exp-ctl{display:flex;gap:8px;padding:10px}
-  .exp-ctl input{flex:1;background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:7px 10px;outline:none}
-  .rows{overflow:auto;flex:1}
+  .pbody{padding:14px;overflow:auto;flex:1;min-height:0}
+  .exp-ctl{display:flex;gap:8px;padding:10px;flex-wrap:wrap}
+  .exp-ctl input,.exp-ctl select{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:7px 10px;outline:none}
+  .exp-ctl input.grow{flex:1;min-width:120px}
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+  .seg button{background:#0c1422;border:none;padding:6px 11px;cursor:pointer;color:var(--muted);font-size:12px}
+  .seg button.on{background:#22d3ee18;color:var(--cyan)}
+  .rows{overflow:auto;flex:1;min-height:0}
   .row{padding:9px 14px;border-bottom:1px solid #ffffff07;cursor:pointer;transition:.1s}
   .row:hover{background:#ffffff06}
   .row.active{background:#22d3ee12;box-shadow:inset 2px 0 var(--cyan)}
-  .row .name{font-weight:600;font-size:13.5px}
+  .row .name{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
+  .row .name .sc{margin-left:auto;font-size:10.5px;color:var(--green);font-variant-numeric:tabular-nums}
   .row .meta{color:var(--muted);font-size:11.5px;margin-top:2px}
-  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;background:#15243c;color:var(--cyan);margin-right:6px;border:1px solid #22d3ee22}
-  .body{overflow:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column}
+  .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;background:#15243c;color:var(--cyan);border:1px solid #22d3ee22}
+  .body{overflow:auto;flex:1;padding:16px 18px;display:flex;flex-direction:column;min-height:0}
   .body h2{margin:0 0 4px;font-size:18px}
   .body .sub{color:var(--muted);font-size:12.5px;margin-bottom:14px}
   .body pre{background:#080d18;border:1px solid var(--line);border-radius:10px;padding:13px;overflow:auto;font-size:12px;line-height:1.5;color:#bcd2f2}
+  .secblk{margin-bottom:14px}
+  .secblk .sh{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+  .kv{display:grid;grid-template-columns:130px 1fr;gap:4px 12px;font-size:12.5px}
+  .kv .kk{color:var(--muted)}
+  .chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;background:#15243c;border:1px solid var(--line2);margin:0 4px 4px 0}
+  .rel{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px;cursor:pointer;font-size:12.5px}
+  .rel:hover{border-color:var(--cyan)}
+  .rel .rk{font-size:10px;color:var(--violet);border:1px solid #a78bfa44;border-radius:5px;padding:1px 6px}
+  .rel .dir{color:var(--dim);font-size:11px}
   .back{font-size:12px;color:var(--cyan);cursor:pointer;margin-bottom:10px;display:inline-block}
-  .empty{color:var(--dim);text-align:center;padding:34px 20px}
+  .empty{color:var(--dim);text-align:center;padding:34px 20px;font-size:13px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
   .graph{flex:1;display:grid;place-items:center;min-height:240px}
   .gpulse{animation:gp 3s ease-in-out infinite}@keyframes gp{50%{opacity:.45}}
   .gnode{cursor:pointer}.gnode:hover circle{stroke:#fff;stroke-width:1.5}
   .edge{stroke:#2a3f63;stroke-width:1.1}
-  .feed{overflow:auto;flex:1;padding:6px 0}
+  .feed{overflow:auto;flex:1;padding:6px 0;min-height:0}
   .ev{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid #ffffff06;cursor:pointer}
   .ev:hover{background:#ffffff06}
   .ev .ic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:12px;flex:none}
@@ -92,134 +113,364 @@
   .metric .mv{font-size:18px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
   .bar{height:4px;border-radius:3px;background:#16213a;margin-top:8px;overflow:hidden}
   .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet))}
-  dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line2);border-radius:14px;padding:0;width:380px;box-shadow:0 20px 60px #000a}
-  dialog form{padding:20px;display:flex;flex-direction:column;gap:10px}
-  dialog h3{margin:0 0 6px} dialog label{font-size:11.5px;color:var(--muted)}
-  dialog input{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;color:var(--text)}
+  table.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.tbl th{text-align:left;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  table.tbl td{padding:9px 10px;border-bottom:1px solid #ffffff07}
+  table.tbl tr:hover td{background:#ffffff05}
+  .st{font-size:10.5px;padding:1px 7px;border-radius:999px;border:1px solid}
+  .st.done{color:var(--green);border-color:#34d39944;background:#34d39910}
+  .st.running{color:var(--amber);border-color:#fbbf2444;background:#fbbf2410}
+  .st.error{color:var(--red);border-color:#f8717144;background:#f8717110}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:11px}
+  .field label{font-size:11.5px;color:var(--muted)}
+  .field input,.field select,.field textarea{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;color:var(--text);width:100%}
+  .field textarea{min-height:80px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .hint{font-size:11px;color:var(--dim);margin-top:-4px}
+  dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line2);border-radius:14px;padding:0;width:440px;max-width:92vw;box-shadow:0 20px 60px #000a}
+  dialog::backdrop{background:#02040ab0;backdrop-filter:blur(2px)}
+  dialog form,dialog .dlg{padding:20px;display:flex;flex-direction:column}
+  dialog h3{margin:0 0 12px}
   dialog .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  .out{max-height:230px;overflow:auto;font-size:12px;margin-top:8px;border-top:1px solid var(--line);padding-top:10px;display:none}
+  #toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:100}
+  .toast{background:var(--panel-solid);border:1px solid var(--line2);border-left:3px solid var(--cyan);border-radius:9px;padding:10px 14px;font-size:12.5px;box-shadow:0 10px 30px #0008;animation:slidein .2s;max-width:340px}
+  .toast.err{border-left-color:var(--red)} .toast.ok{border-left-color:var(--green)}
+  @keyframes slidein{from{opacity:0;transform:translateX(12px)}}
   ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#1d2a44;border-radius:6px}
+  code.k{background:#0c1422;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:11.5px;color:var(--cyan)}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="rail">
     <div class="logo">A</div>
-    <div class="nav active" title="Dashboard">◈</div>
-    <div class="nav" title="Explorer">▤</div>
-    <div class="nav" title="Knowledge graph">⬡</div>
-    <div class="nav" title="Bakes">▦</div>
-    <div class="nav" title="Activity">≋</div>
+    <div class="nav active" data-view="dashboard">◈<span class="lbl">Dashboard</span></div>
+    <div class="nav" data-view="explorer">▤<span class="lbl">Explorer</span></div>
+    <div class="nav" data-view="graph">⬡<span class="lbl">Knowledge graph</span></div>
+    <div class="nav" data-view="bakes">▦<span class="lbl">Bakes</span></div>
+    <div class="nav" data-view="activity">≋<span class="lbl">Activity</span></div>
     <div class="sp"></div>
-    <div class="nav" title="Settings">⚙</div>
+    <div class="nav" data-view="settings">⚙<span class="lbl">Settings</span></div>
   </div>
   <div class="main">
     <div class="top">
       <h1>Aethvion<b>DB</b> <span style="color:var(--dim);font-weight:500">Console</span></h1>
-      <span class="pill"><span class="dot"></span> <span id="liveTxt">live</span></span>
-      <div class="gsearch">⌕ <input id="gsearch" placeholder="Ask the graph…  (coming soon)" disabled></div>
+      <span class="pill"><span class="dot" id="liveDot"></span> <span id="liveTxt">live</span></span>
       <span class="sp"></span>
-      <select class="sel" id="dbSel" title="Database"></select>
+      <select class="sel" id="dbSel" title="Active database"></select>
       <button class="btn" id="impBtn" title="Import an external database">⤓ Import</button>
-      <button class="btn" id="bakeBtn" title="Bake a snapshot (coming soon)">▦ Bake</button>
       <button class="btn cyan" id="newBtn">+ Entity</button>
     </div>
     <div class="content">
-      <div class="stats">
-        <div class="card"><div class="accent"></div><div class="k">Entities</div><div class="v" id="sEnt">—</div><div class="d">active</div>
-          <svg class="spark" width="58" height="22" viewBox="0 0 58 22"><polyline points="0,18 10,12 20,15 30,7 40,10 48,4 58,6" fill="none" stroke="#22d3ee" stroke-width="1.6"/></svg></div>
-        <div class="card"><div class="accent" style="background:var(--violet)"></div><div class="k">Relationships</div><div class="v" id="sRel">—</div><div class="d">edges in graph</div></div>
-        <div class="card"><div class="accent" style="background:var(--green)"></div><div class="k">Databases</div><div class="v" id="sDb">—</div><div class="d">active</div></div>
-        <div class="card"><div class="accent" style="background:var(--amber)"></div><div class="k">Writes · 24h</div><div class="v" id="sW24">—</div><div class="d">created or updated</div></div>
-        <div class="card"><div class="accent" style="background:var(--pink)"></div><div class="k">Vector coverage</div><div class="v" id="sVec">—</div><div class="d">of entities</div></div>
-      </div>
-      <div class="grid">
-        <div class="panel">
-          <div class="ph"><i>▤</i> Explorer <span class="tag" id="expCount">—</span></div>
-          <div class="exp-ctl"><input id="search" placeholder="Filter by name…" autocomplete="off"><button class="btn" id="reload" title="Reload">↻</button></div>
-          <div class="rows" id="rows"><div class="empty">Loading…</div></div>
+
+      <!-- ───────── DASHBOARD ───────── -->
+      <div class="view active" id="v-dashboard">
+        <div class="stats">
+          <div class="card"><div class="accent"></div><div class="k">Entities</div><div class="v" id="sEnt">—</div><div class="d">active</div>
+            <svg class="spark" width="58" height="22" viewBox="0 0 58 22"><polyline points="0,18 10,12 20,15 30,7 40,10 48,4 58,6" fill="none" stroke="#22d3ee" stroke-width="1.6"/></svg></div>
+          <div class="card"><div class="accent" style="background:var(--violet)"></div><div class="k">Relationships</div><div class="v" id="sRel">—</div><div class="d">edges in graph</div></div>
+          <div class="card"><div class="accent" style="background:var(--green)"></div><div class="k">Databases</div><div class="v" id="sDb">—</div><div class="d">active</div></div>
+          <div class="card"><div class="accent" style="background:var(--amber)"></div><div class="k">Writes · 24h</div><div class="v" id="sW24">—</div><div class="d">created or updated</div></div>
+          <div class="card"><div class="accent" style="background:var(--pink)"></div><div class="k">Vector coverage</div><div class="v" id="sVec">—</div><div class="d">of sample</div></div>
         </div>
-        <div class="panel">
-          <div class="ph"><i>◉</i> <span id="detTitle">Knowledge graph</span> <span class="tag" id="detTag"><span class="live-tag">LIVE</span></span></div>
-          <div class="body" id="detail"></div>
-        </div>
-        <div class="panel">
-          <div class="ph"><i>≋</i> Recent activity <span class="live-tag">LIVE</span></div>
-          <div class="feed" id="feed"></div>
-          <div class="ph" style="border-top:1px solid var(--line)"><i>◎</i> System <span class="live-tag">LIVE</span></div>
-          <div class="metrics">
-            <div class="metric"><div class="mk">Query latency</div><div class="mv" id="mLat">— ms</div><div class="bar"><i id="mLatBar" style="width:12%"></i></div></div>
-            <div class="metric"><div class="mk">Kinds</div><div class="mv" id="mTypes">—</div><div class="bar"><i id="mTypesBar" style="width:30%"></i></div></div>
-            <div class="metric"><div class="mk">Stubs</div><div class="mv" id="mStubs">—</div><div class="bar"><i id="mStubsBar" style="width:20%"></i></div></div>
-            <div class="metric"><div class="mk">With vectors</div><div class="mv" id="mVec">—</div><div class="bar"><i id="mVecBar" style="width:40%"></i></div></div>
+        <div class="grid">
+          <div class="panel">
+            <div class="ph"><i>▤</i> Top entities <span class="tag" id="dashCount">—</span></div>
+            <div class="rows" id="dashRows"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>◉</i> Graph overview <span class="tag"><span class="live-tag">LIVE</span></span></div>
+            <div class="body" id="dashGraph"></div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>≋</i> Recent activity <span class="live-tag">LIVE</span></div>
+            <div class="feed" id="dashFeed"></div>
+            <div class="ph" style="border-top:1px solid var(--line)"><i>◎</i> System</div>
+            <div class="metrics">
+              <div class="metric"><div class="mk">Query latency</div><div class="mv" id="mLat">— ms</div><div class="bar"><i id="mLatBar" style="width:12%"></i></div></div>
+              <div class="metric"><div class="mk">Kinds</div><div class="mv" id="mTypes">—</div><div class="bar"><i id="mTypesBar" style="width:30%"></i></div></div>
+              <div class="metric"><div class="mk">Stubs</div><div class="mv" id="mStubs">—</div><div class="bar"><i id="mStubsBar" style="width:20%"></i></div></div>
+              <div class="metric"><div class="mk">With vectors</div><div class="mv" id="mVec">—</div><div class="bar"><i id="mVecBar" style="width:40%"></i></div></div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- ───────── EXPLORER ───────── -->
+      <div class="view" id="v-explorer">
+        <div class="grid2">
+          <div class="panel">
+            <div class="ph"><i>▤</i> Explorer <span class="tag" id="expCount">—</span></div>
+            <div class="exp-ctl">
+              <input class="grow" id="search" placeholder="Search name, summary, tags…" autocomplete="off">
+              <div class="seg" id="modeSeg">
+                <button data-mode="keyword" class="on">keyword</button>
+                <button data-mode="vector">vector</button>
+              </div>
+            </div>
+            <div class="exp-ctl" style="padding-top:0">
+              <select id="fType" class="sel"><option value="">all types</option></select>
+              <select id="fStatus" class="sel">
+                <option value="active">active</option><option value="all">all</option>
+                <option value="stub">stub</option><option value="deleted">deleted</option>
+                <option value="planned">planned</option><option value="deprecated">deprecated</option>
+              </select>
+              <select id="vecModel" class="sel" style="display:none"></select>
+              <button class="btn" id="reload" title="Reload">↻</button>
+            </div>
+            <div class="rows" id="rows"><div class="empty">Loading…</div></div>
+            <div style="padding:8px;border-top:1px solid var(--line);display:flex;justify-content:center">
+              <button class="btn sm" id="moreBtn" style="display:none">Load more</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>◉</i> <span id="detTitle">Entity detail</span> <span class="tag" id="detTag"></span></div>
+            <div class="body" id="detail"><div class="empty">Select an entity to inspect it,<br>or search above.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ───────── GRAPH ───────── -->
+      <div class="view" id="v-graph">
+        <div class="grid2">
+          <div class="panel">
+            <div class="ph"><i>⬡</i> Traversal</div>
+            <div class="pbody">
+              <div class="field"><label>Start entity</label>
+                <input id="gStart" placeholder="name or ws_… id" autocomplete="off"></div>
+              <div class="row2">
+                <div class="field"><label>Depth</label><input id="gDepth" type="number" value="2" min="1" max="6"></div>
+                <div class="field"><label>Direction</label>
+                  <select id="gDir"><option>outbound</option><option>inbound</option><option>both</option></select></div>
+              </div>
+              <div class="field"><label>Relation kinds (comma, optional)</label><input id="gKinds" placeholder="depends_on, calls"></div>
+              <button class="btn cyan" id="gRun" style="width:100%">Traverse</button>
+              <div style="height:14px"></div>
+              <div class="ph" style="border:0;padding:0 0 8px"><i>⤢</i> Path finder</div>
+              <div class="field"><label>From</label><input id="pStart" placeholder="name or id"></div>
+              <div class="field"><label>To</label><input id="pEnd" placeholder="name or id"></div>
+              <button class="btn" id="pRun" style="width:100%">Find shortest path</button>
+              <div id="pOut" style="margin-top:10px;font-size:12.5px"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>◉</i> <span id="gTitle">Graph</span> <span class="tag" id="gTag"></span></div>
+            <div class="body" id="gCanvas"><div class="empty">Enter a start entity and traverse the graph.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ───────── BAKES ───────── -->
+      <div class="view" id="v-bakes">
+        <div class="panel" style="flex:1">
+          <div class="ph"><i>▦</i> Baked snapshots <span class="tag" id="bakeCount">—</span>
+            <button class="btn sm" id="bakeRefresh" style="margin-left:8px">↻</button>
+            <button class="btn cyan sm" id="bakeNew" style="margin-left:6px">+ Bake</button></div>
+          <div class="pbody">
+            <table class="tbl"><thead><tr><th>Name</th><th>Format</th><th>Status</th><th>Entities</th><th>Size</th><th>Created</th><th></th></tr></thead>
+              <tbody id="bakeRows"><tr><td colspan="7"><div class="empty">Loading…</div></td></tr></tbody></table>
+            <div id="bakeDetail" style="margin-top:14px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ───────── ACTIVITY ───────── -->
+      <div class="view" id="v-activity">
+        <div class="panel" style="flex:1">
+          <div class="ph"><i>≋</i> Activity <span class="live-tag">LIVE</span><span class="tag">derived from entity timestamps</span></div>
+          <div class="feed" id="actFeed"><div class="empty">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- ───────── SETTINGS ───────── -->
+      <div class="view" id="v-settings">
+        <div class="grid2" style="align-items:start">
+          <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            <div class="panel">
+              <div class="ph"><i>▦</i> Databases</div>
+              <div class="pbody">
+                <table class="tbl"><thead><tr><th>Name</th><th>Entities</th><th></th></tr></thead><tbody id="dbRows"></tbody></table>
+                <div class="exp-ctl" style="padding:10px 0 0">
+                  <input class="grow" id="newDbName" placeholder="new-database-name">
+                  <button class="btn" id="newDbBtn">Create</button>
+                </div>
+                <div class="hint">A database becomes real on its first write or import.</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="ph"><i>🔑</i> API keys <span class="tag" id="keyMode">—</span></div>
+              <div class="pbody">
+                <div class="field"><label>Active key (sent as X-API-Key)</label>
+                  <input id="activeKey" placeholder="none — open access" autocomplete="off"></div>
+                <div class="hint" style="margin-bottom:8px">Stored locally in this browser only.</div>
+                <table class="tbl"><thead><tr><th>Label</th><th>Scopes</th><th></th></tr></thead><tbody id="keyRows"></tbody></table>
+                <div class="exp-ctl" style="padding:10px 0 0">
+                  <input class="grow" id="newKeyLabel" placeholder="key label (e.g. coding-agent)">
+                  <button class="btn" id="newKeyBtn">Generate</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>✦</i> Vectorization <span class="tag">optional · embeddings</span></div>
+            <div class="pbody">
+              <div class="hint" style="margin-bottom:10px">Generate embeddings for every entity and store them on the raw record (<code class="k">sections.vectors</code>). The core works fully without this.</div>
+              <div class="field"><label>Embedding model</label><select id="vModel"></select>
+                <div class="hint" id="vModelHint"></div></div>
+              <div class="row2">
+                <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="vStubs" checked style="width:auto"> include stubs</label>
+                <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="vForce" style="width:auto"> re-embed existing</label>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn cyan" id="vStart">Start vectorizing</button>
+                <button class="btn danger" id="vCancel" disabled>Cancel</button>
+              </div>
+              <div id="vStatus" style="margin-top:14px;font-size:12.5px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
 
+<!-- Dialogs -->
 <dialog id="newDlg"><form method="dialog" id="newForm">
   <h3>New entity</h3>
-  <label>Name</label><input id="nName" required autocomplete="off">
-  <label>Type</label><input id="nType" value="concept" autocomplete="off">
-  <div class="actions"><button class="btn" value="cancel">Cancel</button><button class="btn cyan" value="default">Create</button></div>
+  <div class="field"><label>Name</label><input id="nName" required autocomplete="off"></div>
+  <div class="row2">
+    <div class="field"><label>Type</label><input id="nType" value="concept" autocomplete="off"></div>
+    <div class="field"><label>Kind (optional)</label><input id="nKind" autocomplete="off"></div>
+  </div>
+  <div class="field"><label>Summary</label><textarea id="nSummary" style="min-height:60px"></textarea></div>
+  <div class="actions"><button class="btn" value="cancel" type="button" id="nCancel">Cancel</button><button class="btn cyan" value="default">Create</button></div>
 </form></dialog>
 
-<dialog id="impDlg" style="width:440px"><form id="impForm" method="dialog">
+<dialog id="editDlg"><div class="dlg">
+  <h3>Edit entity</h3>
+  <div class="row2">
+    <div class="field"><label>Name</label><input id="eName"></div>
+    <div class="field"><label>Status</label>
+      <select id="eStatus"><option>active</option><option>stub</option><option>planned</option><option>deprecated</option><option>experimental</option><option>deleted</option></select></div>
+  </div>
+  <div class="row2">
+    <div class="field"><label>Type</label><input id="eType"></div>
+    <div class="field"><label>Kind</label><input id="eKind"></div>
+  </div>
+  <div class="field"><label>Summary</label><textarea id="eSummary" style="min-height:60px"></textarea></div>
+  <div class="field"><label>Tags (comma separated)</label><input id="eTags"></div>
+  <div class="field"><label>Properties (JSON)</label><textarea id="eProps"></textarea></div>
+  <div class="hint">Saved with optimistic concurrency — a conflicting edit returns 409.</div>
+  <div class="actions"><button class="btn" id="eCancel">Cancel</button><button class="btn cyan" id="eSave">Save (PATCH)</button></div>
+</div></dialog>
+
+<dialog id="impDlg"><div class="dlg">
   <h3>Import database</h3>
-  <div style="font-size:11.5px;color:var(--muted);margin:-2px 0 4px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
-  <label>Source type</label>
-  <select id="impType" class="sel"><option value="sqlite">SQLite (.db / .sqlite)</option></select>
-  <label>Source file path (on this machine)</label>
-  <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\chinook.db" autocomplete="off">
-  <label>Target database name</label>
-  <input id="impDb" placeholder="chinook" autocomplete="off">
-  <div id="impOut" style="max-height:200px;overflow:auto;font-size:12px;margin-top:6px;border-top:1px solid var(--line);padding-top:8px;display:none"></div>
+  <div class="hint" style="margin-bottom:8px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
+  <div class="field"><label>Source type</label><select id="impType"><option value="sqlite">SQLite (.db / .sqlite)</option></select></div>
+  <div class="field"><label>Source file path (on this machine)</label>
+    <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\sample.db" autocomplete="off"></div>
+  <div class="field"><label>Target database name</label><input id="impDb" placeholder="chinook" autocomplete="off"></div>
+  <div class="out" id="impOut"></div>
   <div class="actions">
-    <button class="btn" value="cancel" type="button" id="impClose">Close</button>
+    <button class="btn" type="button" id="impClose">Close</button>
     <button class="btn" type="button" id="impPrev">Preview</button>
     <button class="btn cyan" type="button" id="impRun">Import</button>
   </div>
-</form></dialog>
+</div></dialog>
+
+<dialog id="bakeDlg"><div class="dlg">
+  <h3>Bake a snapshot</h3>
+  <div class="hint" style="margin-bottom:8px">Flattens the raw entities into a downloadable snapshot for downstream consumers.</div>
+  <div class="row2">
+    <div class="field"><label>Name</label><input id="bName" value="default"></div>
+    <div class="field"><label>Format</label><select id="bFormat"><option>jsonl</option><option>json</option><option>markdown</option><option>txt</option></select></div>
+  </div>
+  <label style="font-size:12px;display:flex;gap:7px;align-items:center;margin-bottom:8px"><input type="checkbox" id="bStubs" checked style="width:auto"> include stubs</label>
+  <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="bVectors" style="width:auto"> include vectors</label>
+  <div class="actions"><button class="btn" id="bCancel">Cancel</button><button class="btn cyan" id="bGo">Start bake</button></div>
+</div></dialog>
+
+<div id="toasts"></div>
 
 <script>
-const API="/api/v1"; let entities=[], activeId=null;
+const API="/api/v1";
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const TYPE_COLOR={module:"#22d3ee",class:"#a78bfa",function:"#34d399",concept:"#3b82f6",person:"#f472b6",service:"#fbbf24",decision:"#f59e0b",event:"#22d3ee"};
-const tcol=t=>TYPE_COLOR[t]||"#7aa2d6";
+const TYPE_COLOR={module:"#22d3ee",class:"#a78bfa",function:"#34d399",concept:"#3b82f6",person:"#f472b6",service:"#fbbf24",decision:"#f59e0b",event:"#22d3ee",goal:"#34d399",place:"#f472b6"};
 const PAL=["#22d3ee","#a78bfa","#34d399","#3b82f6","#f472b6","#fbbf24","#2dd4bf","#c084fc"];
 function ccol(s){let h=0;s=String(s||"other");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return PAL[h%PAL.length];}
-/* The fine classifier: kind (e.g. Album) when present, else the coarse type. */
-const clsOf=e=>e.kind||e.type||"other";
-const colOf=e=>(e.type&&e.type!=="other"&&TYPE_COLOR[e.type])?TYPE_COLOR[e.type]:ccol(e.kind||e.type||"other");
-function relTime(iso){ if(!iso)return""; const s=(Date.now()-new Date(iso).getTime())/1000;
-  if(s<60)return Math.max(0,s|0)+"s"; if(s<3600)return (s/60|0)+"m"; if(s<86400)return (s/3600|0)+"h"; return (s/86400|0)+"d"; }
+const clsOf=e=>(Array.isArray(e.kind)?e.kind[0]:e.kind)||e.type||"other";
+const colOf=e=>(e.type&&e.type!=="other"&&TYPE_COLOR[e.type])?TYPE_COLOR[e.type]:ccol(clsOf(e));
+function relTime(iso){if(!iso)return"";const s=(Date.now()-new Date(iso).getTime())/1000;
+  if(s<60)return Math.max(0,s|0)+"s";if(s<3600)return(s/60|0)+"m";if(s<86400)return(s/3600|0)+"h";return(s/86400|0)+"d";}
+function toast(msg,kind){const el=document.createElement("div");el.className="toast "+(kind||"");el.textContent=msg;
+  $("toasts").appendChild(el);setTimeout(()=>el.remove(),4200);}
 
-async function jget(url,opts){
+// ── State ──
+let entities=[], activeId=null, nextCursor=null, searchMode="keyword", vecModels=[];
+const db=()=>$("dbSel").value;
+const getKey=()=>localStorage.getItem("adb_key")||"";
+
+// ── API helper ──
+async function api(path,{method="GET",body,raw=false}={}){
   const t=performance.now();
-  const r=await fetch(url,opts); const j=await r.json().catch(()=>({}));
-  const ms=performance.now()-t; $("mLat").textContent=ms.toFixed(0)+" ms";
-  $("mLatBar").style.width=Math.min(100,ms/3)+"%";
-  if(!r.ok||j.ok===false) throw new Error(j.detail||("HTTP "+r.status));
+  const headers={"Content-Type":"application/json"};
+  const k=getKey(); if(k) headers["X-API-Key"]=k;
+  let r;
+  try{ r=await fetch(API+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined}); }
+  catch(e){ setLive(false); throw new Error("Network error — is the server running?"); }
+  setLatency(performance.now()-t); setLive(true);
+  if(raw) return r;
+  const txt=await r.text(); let j={}; try{j=JSON.parse(txt);}catch{}
+  if(!r.ok||j.ok===false){
+    let d=j.detail!==undefined?j.detail:(j.message||txt);
+    if(d&&typeof d==="object") d=d.message||JSON.stringify(d);
+    throw new Error(d||("HTTP "+r.status));
+  }
+  // Surface the pagination cursor (lives in meta) onto object payloads.
+  if(j.data&&typeof j.data==="object"&&!Array.isArray(j.data)&&j.meta&&j.meta.cursor!==undefined)
+    j.data._cursor=j.meta.cursor;
   return j.data;
 }
+function setLatency(ms){$("mLat").textContent=ms.toFixed(0)+" ms";$("mLatBar").style.width=Math.min(100,ms/3)+"%";}
+function setLive(ok){$("liveTxt").textContent=ok?"live":"offline";$("liveDot").style.background=ok?"var(--green)":"var(--red)";}
 
+// ── View routing ──
+let curView="dashboard";
+function switchView(v){
+  curView=v;
+  document.querySelectorAll(".rail .nav").forEach(n=>n.classList.toggle("active",n.dataset.view===v));
+  document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id==="v-"+v));
+  if(v==="bakes") loadBakes();
+  if(v==="settings") loadSettings();
+  if(v==="activity") renderActivity();
+}
+document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
+
+// ── Databases ──
 async function loadDatabases(){
-  const d=await jget(`${API}/`);
-  const sel=$("dbSel"); sel.innerHTML="";
+  const d=await api("/");
+  const sel=$("dbSel"); const prev=sel.value;
+  sel.innerHTML="";
   const dbs=d.databases.length?d.databases:[{name:"default",entity_count:0}];
-  for(const db of dbs){const o=document.createElement("option");o.value=db.name;o.textContent=`${db.name} · ${db.entity_count}`;sel.appendChild(o);}
+  for(const x of dbs){const o=document.createElement("option");o.value=x.name;o.textContent=`${x.name} · ${x.entity_count}`;sel.appendChild(o);}
+  if(prev&&[...sel.options].some(o=>o.value===prev)) sel.value=prev;
   $("sDb").textContent=dbs.length;
+  window._dbs=dbs;
   await loadEntities();
 }
 
+// ── Entities (sample load for dashboard + base explorer list) ──
 async function loadEntities(){
-  const db=$("dbSel").value;
-  const d=await jget(`${API}/${encodeURIComponent(db)}/raw/entities?limit=500`);
+  const status=$("fStatus").value;
+  const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}`);
   entities=d.entities||[];
+  nextCursor=d._cursor||null;
   computeStats(d.total??entities.length);
-  render(); renderFeed(); renderOverview();
+  renderDashboard(); renderList(entities);
 }
 
 function computeStats(total){
@@ -230,131 +481,406 @@ function computeStats(total){
   const types=new Set(entities.map(clsOf)).size;
   const stubs=entities.filter(e=>e.status==="stub").length;
   const n=entities.length||1;
-  $("sEnt").textContent=(total).toLocaleString();
+  $("sEnt").textContent=Number(total).toLocaleString();
   $("sRel").textContent=rel.toLocaleString();
   $("sW24").textContent=w24.toLocaleString();
   $("sVec").textContent=Math.round(vec/n*100)+"%";
   $("expCount").textContent=total+" total";
-  $("mTypes").textContent=types; $("mTypesBar").style.width=Math.min(100,types*8)+"%";
-  $("mStubs").textContent=stubs; $("mStubsBar").style.width=Math.min(100,stubs/n*100)+"%";
-  $("mVec").textContent=vec;     $("mVecBar").style.width=Math.round(vec/n*100)+"%";
+  $("dashCount").textContent=n+" loaded";
+  $("mTypes").textContent=types;$("mTypesBar").style.width=Math.min(100,types*8)+"%";
+  $("mStubs").textContent=stubs;$("mStubsBar").style.width=Math.min(100,stubs/n*100)+"%";
+  $("mVec").textContent=vec;$("mVecBar").style.width=Math.round(vec/n*100)+"%";
+  // populate type filter
+  const ft=$("fType"),cur=ft.value;
+  const kinds=[...new Set(entities.map(e=>e.type).filter(Boolean))].sort();
+  ft.innerHTML='<option value="">all types</option>'+kinds.map(k=>`<option ${k===cur?"selected":""}>${esc(k)}</option>`).join("");
 }
 
-function render(){
-  const q=$("search").value.trim().toLowerCase(), rows=$("rows");
-  const list=q?entities.filter(e=>(e.name||e.id||"").toLowerCase().includes(q)):entities;
-  if(!list.length){rows.innerHTML=`<div class="empty">No entities yet.<br>Create one with + Entity.</div>`;return;}
-  rows.innerHTML=list.map(e=>`<div class="row ${e.id===activeId?"active":""}" data-id="${esc(e.id)}">
-    <div class="name">${esc(e.name||e.id)}</div>
-    <div class="meta"><span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span>${esc(e.status||"")}</div></div>`).join("");
-  rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>showEntity(r.dataset.id)));
+// ── Dashboard ──
+function renderDashboard(){
+  const rows=$("dashRows");
+  const byDeg=[...entities].sort((a,b)=>(((b.sections||{}).relations||[]).length)-(((a.sections||{}).relations||[]).length)).slice(0,30);
+  rows.innerHTML=byDeg.length?byDeg.map(e=>rowHtml(e)).join(""):`<div class="empty">No entities yet.</div>`;
+  rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
+  renderFeed($("dashFeed"),9);
+  renderMiniGraph($("dashGraph"));
 }
-
-/* Recent activity — real, derived from entity timestamps + source ("who") */
-function renderFeed(){
+function rowHtml(e,score){
+  return `<div class="row ${e.id===activeId?"active":""}" data-id="${esc(e.id)}">
+    <div class="name">${esc(e.name||e.id)}${score!==undefined?`<span class="sc">${(score*100).toFixed(0)}%</span>`:""}</div>
+    <div class="meta"><span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span> ${esc(e.status||"")} · ${((e.sections||{}).relations||[]).length} rel</div></div>`;
+}
+function renderFeed(target,limit){
   const recent=[...entities].filter(e=>e.updated||e.created)
-    .sort((a,b)=>String(b.updated||b.created).localeCompare(String(a.updated||a.created))).slice(0,9);
-  if(!recent.length){$("feed").innerHTML=`<div class="empty">No activity yet.</div>`;return;}
-  $("feed").innerHTML=recent.map(e=>{
-    const fresh=e.created===e.updated; const c=colOf(e);
+    .sort((a,b)=>String(b.updated||b.created).localeCompare(String(a.updated||a.created))).slice(0,limit);
+  if(!recent.length){target.innerHTML=`<div class="empty">No activity yet.</div>`;return;}
+  target.innerHTML=recent.map(e=>{const fresh=e.created===e.updated;const c=colOf(e);
     return `<div class="ev" data-id="${esc(e.id)}"><div class="ic" style="background:${c}1a;color:${c}">${fresh?"✦":"✎"}</div>
       <div><div class="t"><span class="who">${esc(e.source||"system")}</span> ${fresh?"created":"updated"} <span class="ent">${esc(e.name||e.id)}</span></div>
-      <div class="ago">${relTime(e.updated||e.created)} ago · ${esc(clsOf(e))}</div></div></div>`;
-  }).join("");
-  $("feed").querySelectorAll(".ev").forEach(r=>r.addEventListener("click",()=>showEntity(r.dataset.id)));
+      <div class="ago">${relTime(e.updated||e.created)} ago · ${esc(clsOf(e))}</div></div></div>`;}).join("");
+  target.querySelectorAll(".ev").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
 }
-
-/* Knowledge graph — real nodes (entities) + edges (relations between loaded entities) */
-function renderOverview(){
-  activeId=null; render();
-  $("detTitle").textContent="Knowledge graph";
-  $("detTag").innerHTML=`<span class="live-tag">LIVE</span>`;
-  const byId=new Map(entities.map(e=>[e.id,e]));
-  const deg=new Map(); const edges=[];
-  for(const e of entities) for(const r of ((e.sections||{}).relations||[]))
-    if(byId.has(r.target_id)){edges.push([e.id,r.target_id]); deg.set(e.id,(deg.get(e.id)||0)+1); deg.set(r.target_id,(deg.get(r.target_id)||0)+1);}
+function renderMiniGraph(target){
+  const byId=new Map(entities.map(e=>[e.id,e]));const deg=new Map();const edges=[];
+  for(const e of entities)for(const r of((e.sections||{}).relations||[]))
+    if(byId.has(r.target_id)){edges.push([e.id,r.target_id]);deg.set(e.id,(deg.get(e.id)||0)+1);deg.set(r.target_id,(deg.get(r.target_id)||0)+1);}
   let nodes=[...entities].sort((a,b)=>(deg.get(b.id)||0)-(deg.get(a.id)||0)).slice(0,16);
   const ids=new Set(nodes.map(n=>n.id));
-  if(!nodes.length){$("detail").innerHTML=`<div class="empty">No entities to graph yet.<br>Create a few and link them with relations to see the graph.</div>`;return;}
-  const cx=180,cy=120,R=92; const pos=new Map();
-  nodes.forEach((n,i)=>{const a=(i/nodes.length)*2*Math.PI-Math.PI/2; pos.set(n.id, nodes.length===1?[cx,cy]:[cx+R*Math.cos(a),cy+R*Math.sin(a)]);});
+  if(!nodes.length){target.innerHTML=`<div class="empty">No entities to graph yet.<br>Create a few and link them with relations.</div>`;return;}
+  target.innerHTML=svgGraph(nodes,edges.filter(([a,b])=>ids.has(a)&&ids.has(b)),deg)+
+    `<div style="color:var(--dim);font-size:11.5px;text-align:center;margin-top:6px">top ${nodes.length} of ${entities.length} · click a node</div>`;
+  target.querySelectorAll(".gnode").forEach(g=>g.addEventListener("click",()=>openEntity(g.dataset.id)));
+}
+function svgGraph(nodes,edges,deg){
+  const cx=180,cy=125,R=98;const pos=new Map();
+  nodes.forEach((n,i)=>{const a=(i/nodes.length)*2*Math.PI-Math.PI/2;pos.set(n.id,nodes.length===1?[cx,cy]:[cx+R*Math.cos(a),cy+R*Math.sin(a)]);});
   let svg="";
-  for(const[a,b]of edges){ if(ids.has(a)&&ids.has(b)){const p=pos.get(a),q=pos.get(b); svg+=`<line class="edge" x1="${p[0].toFixed(0)}" y1="${p[1].toFixed(0)}" x2="${q[0].toFixed(0)}" y2="${q[1].toFixed(0)}"/>`;} }
-  nodes.forEach((n,i)=>{const[x,y]=pos.get(n.id);const c=colOf(n);const r=6+Math.min(5,(deg.get(n.id)||0));
-    svg+=`<g class="gnode" data-id="${esc(n.id)}"><circle class="gpulse" cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r}" fill="${c}" style="filter:drop-shadow(0 0 5px ${c}aa);animation-delay:${i*0.2}s"/><title>${esc(n.name||n.id)}</title></g>`;});
-  const edgeN=edges.filter(([a,b])=>ids.has(a)&&ids.has(b)).length;
-  $("detail").innerHTML=`<div style="color:var(--muted);font-size:12px;margin-bottom:6px">${nodes.length} nodes · ${edgeN} edges${entities.length>16?` · top ${nodes.length} of ${entities.length}`:""}</div>
-    <div class="graph"><svg width="100%" height="260" viewBox="0 0 360 240">${svg}</svg></div>
-    <div style="color:var(--dim);font-size:11.5px;text-align:center">click a node to open it</div>`;
-  $("detail").querySelectorAll(".gnode").forEach(g=>g.addEventListener("click",()=>showEntity(g.dataset.id)));
+  for(const[a,b]of edges){const p=pos.get(a),q=pos.get(b);if(p&&q)svg+=`<line class="edge" x1="${p[0]|0}" y1="${p[1]|0}" x2="${q[0]|0}" y2="${q[1]|0}"/>`;}
+  nodes.forEach((n,i)=>{const[x,y]=pos.get(n.id);const c=colOf(n);const r=6+Math.min(6,(deg&&deg.get(n.id))||1);
+    svg+=`<g class="gnode" data-id="${esc(n.id)}"><circle class="gpulse" cx="${x|0}" cy="${y|0}" r="${r}" fill="${c}" style="filter:drop-shadow(0 0 5px ${c}aa);animation-delay:${i*0.15}s"/><title>${esc(n.name||n.id)}</title>
+      <text x="${x|0}" y="${(y|0)+r+11}" fill="#9fb4d6" font-size="9" text-anchor="middle">${esc((n.name||"").slice(0,14))}</text></g>`;});
+  return `<div class="graph"><svg width="100%" height="280" viewBox="0 0 360 260">${svg}</svg></div>`;
 }
 
-async function showEntity(id){
-  activeId=id; render();
-  const db=$("dbSel").value, detail=$("detail");
-  detail.innerHTML=`<div class="empty">Loading…</div>`;
+// ── Explorer ──
+function renderList(list){
+  const rows=$("rows");
+  if(!list.length){rows.innerHTML=`<div class="empty">No results.</div>`;$("moreBtn").style.display="none";return;}
+  rows.innerHTML=list.map(e=>rowHtml(e,e.score)).join("");
+  rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
+  $("moreBtn").style.display=nextCursor?"inline-block":"none";
+}
+async function runSearch(){
+  const q=$("search").value.trim();
+  const status=$("fStatus").value, type=$("fType").value;
+  const filters={}; if(status&&status!=="all")filters.status=status; if(type)filters.type=type;
   try{
-    const e=await jget(`${API}/${encodeURIComponent(db)}/raw/entities/${encodeURIComponent(id)}`);
-    const core=(e.sections&&e.sections.core)||{}, rels=(e.sections&&e.sections.relations)||[];
-    $("detTitle").textContent=e.name||"Entity"; $("detTag").innerHTML="";
-    detail.innerHTML=`<span class="back" id="backBtn">← graph</span>
+    if(searchMode==="vector"){
+      const model=$("vecModel").value;
+      if(!q){toast("Enter a query for vector search","err");return;}
+      const d=await api(`/${encodeURIComponent(db())}/raw/vectors/search`,{method:"POST",body:{query:q,model,top_k:50,filters}});
+      $("expCount").textContent=`${d.results.length} by similarity`;
+      renderList(d.results); nextCursor=null;
+      if(!d.results.length) toast("No vectors for this model — run vectorization in Settings","err");
+    }else{
+      const d=await api(`/${encodeURIComponent(db())}/raw/search`,{method:"POST",body:{query:q,modes:["keyword"],filters,limit:50}});
+      $("expCount").textContent=`${d.total_matched} matched · ${d.total_scanned} scanned`;
+      renderList(d.results); nextCursor=null;
+    }
+  }catch(e){toast(e.message,"err");}
+}
+async function loadMore(){
+  if(!nextCursor)return;
+  const status=$("fStatus").value;
+  const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}&cursor=${encodeURIComponent(nextCursor)}`);
+  entities=entities.concat(d.entities||[]); nextCursor=d._cursor||null;
+  renderList(entities);
+}
+
+async function openEntity(id){
+  activeId=id; switchView("explorer");
+  document.querySelectorAll("#rows .row,#dashRows .row").forEach(r=>r.classList.toggle("active",r.dataset.id===id));
+  const detail=$("detail"); detail.innerHTML=`<div class="empty">Loading…</div>`;
+  $("detTitle").textContent="Entity detail"; $("detTag").innerHTML="";
+  try{
+    const e=await api(`/${encodeURIComponent(db())}/raw/entities/${encodeURIComponent(id)}`);
+    window._cur=e;
+    const sec=e.sections||{}, core=sec.core||{}, props=sec.properties||{}, tl=sec.timeline||[], vecs=sec.vectors||{};
+    // resolve relations (names)
+    let rels=[];
+    try{const rd=await api(`/${encodeURIComponent(db())}/raw/entities/${encodeURIComponent(id)}/relations`);rels=rd.relations||[];}catch{}
+    $("detTitle").textContent=e.name||"Entity";
+    $("detTag").innerHTML=`<span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span>`;
+    const tags=(core.tags||[]);
+    detail.innerHTML=`
+      <div class="toolbar">
+        <button class="btn sm" id="edBtn">✎ Edit</button>
+        <button class="btn sm" id="nbBtn">⬡ Neighbors</button>
+        <button class="btn sm" id="jsonBtn">{ } JSON</button>
+        <button class="btn sm danger" id="delBtn">🗑 Delete</button>
+      </div>
       <h2>${esc(e.name||e.id)}</h2>
-      <div class="sub"><span class="badge" style="color:${colOf(e)};border-color:${colOf(e)}33">${esc(clsOf(e))}</span> ${e.kind&&e.type&&e.type!=="other"?esc(e.type)+" · ":""}${esc(e.status||"")} · v${esc(e.version||1)} · ${rels.length} relations · <span style="color:var(--dim)">${esc(e.id)}</span></div>
-      ${core.summary?`<p>${esc(core.summary)}</p>`:""}
-      <pre>${esc(JSON.stringify(e,null,2))}</pre>`;
-    $("backBtn").addEventListener("click",renderOverview);
+      <div class="sub">${e.type?esc(e.type):""}${e.kind?" · "+esc(Array.isArray(e.kind)?e.kind.join(", "):e.kind):""} · ${esc(e.status||"")} · v${esc(e.version||1)} · <span style="color:var(--dim)">${esc(e.id)}</span></div>
+      ${core.summary?`<div class="secblk"><div class="sh">Summary</div><div style="font-size:13px;line-height:1.55">${esc(core.summary)}</div></div>`:""}
+      ${tags.length?`<div class="secblk"><div class="sh">Tags</div>${tags.map(t=>`<span class="chip">${esc(t)}</span>`).join("")}</div>`:""}
+      ${Object.keys(props).length?`<div class="secblk"><div class="sh">Properties</div><div class="kv">${Object.entries(props).map(([k,v])=>`<div class="kk">${esc(k)}</div><div>${esc(typeof v==="object"?JSON.stringify(v):v)}</div>`).join("")}</div></div>`:""}
+      ${rels.length?`<div class="secblk"><div class="sh">Relations · ${rels.length}</div>${rels.map(r=>`<div class="rel" data-id="${esc(r.target_id)}"><span class="rk">${esc(r.kind)}</span> <span>${esc(r.target_name||r.target_id)}</span>${r.note?`<span class="dir">— ${esc(r.note)}</span>`:""}</div>`).join("")}</div>`:""}
+      ${tl.length?`<div class="secblk"><div class="sh">Timeline · ${tl.length}</div>${tl.map(t=>`<div style="font-size:12.5px;padding:3px 0"><span style="color:var(--muted)">${esc(t.date||"")}</span> — ${esc(t.event||"")}</div>`).join("")}</div>`:""}
+      ${Object.keys(vecs).length?`<div class="secblk"><div class="sh">Vectors</div>${Object.entries(vecs).map(([m,v])=>`<span class="chip">${esc(m)} · ${esc((v&&v.dimensions)||"?")}d</span>`).join("")}</div>`:""}
+      <div id="jsonBlk" style="display:none"><div class="sh" style="margin-bottom:6px">Raw JSON</div><pre>${esc(JSON.stringify(e,null,2))}</pre></div>`;
+    detail.querySelectorAll(".rel").forEach(r=>r.addEventListener("click",()=>r.dataset.id&&openEntity(r.dataset.id)));
+    $("edBtn").addEventListener("click",()=>openEditor(e));
+    $("delBtn").addEventListener("click",()=>delEntity(e));
+    $("jsonBtn").addEventListener("click",()=>{const b=$("jsonBlk");b.style.display=b.style.display==="none"?"block":"none";});
+    $("nbBtn").addEventListener("click",()=>{$("gStart").value=e.name||e.id;switchView("graph");runTraverse();});
   }catch(err){detail.innerHTML=`<div class="empty">Error: ${esc(err.message)}</div>`;}
 }
 
-async function createEntity(name,type){
-  const db=$("dbSel").value;
-  await jget(`${API}/${encodeURIComponent(db)}/raw/entities/upsert`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,type})});
-  await loadEntities();
+// ── Create / Edit / Delete ──
+async function createEntity(){
+  const name=$("nName").value.trim(); if(!name)return;
+  const body={name,type:$("nType").value.trim()||"concept"};
+  const kind=$("nKind").value.trim(); if(kind)body.kind=kind;
+  const summary=$("nSummary").value.trim(); if(summary)body.summary=summary;
+  try{await api(`/${encodeURIComponent(db())}/raw/entities/upsert`,{method:"POST",body});
+    toast("Entity created","ok");$("newDlg").close();await loadDatabases();}
+  catch(e){toast(e.message,"err");}
+}
+function openEditor(e){
+  const core=(e.sections||{}).core||{}, props=(e.sections||{}).properties||{};
+  $("eName").value=e.name||""; $("eType").value=e.type||"";
+  $("eKind").value=Array.isArray(e.kind)?e.kind.join(", "):(e.kind||"");
+  $("eStatus").value=e.status||"active"; $("eSummary").value=core.summary||"";
+  $("eTags").value=(core.tags||[]).join(", ");
+  $("eProps").value=Object.keys(props).length?JSON.stringify(props,null,2):"";
+  window._editId=e.id; window._editVer=e.version;
+  $("editDlg").showModal();
+}
+async function saveEdit(){
+  let props={};
+  if($("eProps").value.trim()){try{props=JSON.parse($("eProps").value);}catch{toast("Properties must be valid JSON","err");return;}}
+  const mutations={
+    name:$("eName").value.trim(), type:$("eType").value.trim(), status:$("eStatus").value,
+    sections:{core:{summary:$("eSummary").value.trim(),tags:$("eTags").value.split(",").map(s=>s.trim()).filter(Boolean)}}
+  };
+  const kind=$("eKind").value.trim(); if(kind)mutations.kind=kind.includes(",")?kind.split(",").map(s=>s.trim()):kind;
+  if(Object.keys(props).length)mutations.sections.properties=props;
+  try{
+    await api(`/${encodeURIComponent(db())}/raw/entities/${encodeURIComponent(window._editId)}`,
+      {method:"PATCH",body:{mutations,expected_version:window._editVer}});
+    toast("Saved","ok");$("editDlg").close();await loadEntities();await openEntity(window._editId);
+  }catch(e){
+    if(/conflict|409/i.test(e.message)){toast("Version conflict — reloading latest","err");await openEntity(window._editId);$("editDlg").close();}
+    else toast(e.message,"err");
+  }
+}
+async function delEntity(e){
+  if(!confirm(`Delete "${e.name||e.id}"? (soft delete — sets status=deleted)`))return;
+  try{await api(`/${encodeURIComponent(db())}/raw/entities/${encodeURIComponent(e.id)}`,{method:"DELETE"});
+    toast("Deleted","ok");activeId=null;$("detail").innerHTML=`<div class="empty">Deleted.</div>`;await loadEntities();}
+  catch(err){toast(err.message,"err");}
 }
 
-/* ── Import an external database ── */
-function impBody(){return {source_type:$("impType").value, source:$("impPath").value.trim(), db:$("impDb").value.trim()};}
-async function postJSON(url,body){
-  const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const txt=await r.text(); let j={}; try{j=JSON.parse(txt);}catch{}
-  if(!r.ok) throw new Error(j.detail||txt||("HTTP "+r.status));
-  return j;
+// ── Graph view ──
+async function resolveId(input){
+  input=input.trim(); if(!input)return null;
+  if(input.startsWith("ws_"))return input;
+  // resolve by name via search
+  try{const d=await api(`/${encodeURIComponent(db())}/raw/search`,{method:"POST",body:{query:input,modes:["keyword"],limit:1}});
+    if(d.results&&d.results.length)return d.results[0].id;}catch{}
+  return null;
 }
-async function importPreview(){
-  const out=$("impOut"); out.style.display="block"; out.innerHTML="Reading source…";
-  const b=impBody(); if(!b.source){out.innerHTML="<span style='color:var(--pink)'>Enter a source file path.</span>";return;}
+async function runTraverse(){
+  const startId=await resolveId($("gStart").value);
+  if(!startId){toast("Start entity not found","err");return;}
+  const kinds=$("gKinds").value.split(",").map(s=>s.trim()).filter(Boolean);
+  $("gCanvas").innerHTML=`<div class="empty">Traversing…</div>`;
   try{
-    const j=await postJSON("/api/import/preview",b);
+    const d=await api(`/${encodeURIComponent(db())}/raw/graph/traverse`,{method:"POST",body:{
+      start_id:startId, depth:+$("gDepth").value||2, direction:$("gDir").value,
+      relation_kinds:kinds.length?kinds:null, limit:60}});
+    $("gTitle").textContent=d.root.name||"Graph";
+    $("gTag").innerHTML=`<span class="tag">${d.node_count} nodes · ${d.edge_count} edges</span>`;
+    if(!d.nodes.length){$("gCanvas").innerHTML=`<div class="empty">No connected nodes within depth.</div>`;return;}
+    const deg=new Map(); d.edges.forEach(e=>{deg.set(e.source,(deg.get(e.source)||0)+1);deg.set(e.target,(deg.get(e.target)||0)+1);});
+    const edges=d.edges.map(e=>[e.source,e.target]);
+    $("gCanvas").innerHTML=svgGraph(d.nodes,edges,deg)+
+      `<div style="color:var(--dim);font-size:11.5px;text-align:center;margin-top:6px">click a node to inspect</div>`;
+    $("gCanvas").querySelectorAll(".gnode").forEach(g=>g.addEventListener("click",()=>openEntity(g.dataset.id)));
+  }catch(e){$("gCanvas").innerHTML=`<div class="empty">Error: ${esc(e.message)}</div>`;}
+}
+async function runPath(){
+  const a=await resolveId($("pStart").value), b=await resolveId($("pEnd").value);
+  if(!a||!b){toast("Both endpoints must resolve to entities","err");return;}
+  $("pOut").innerHTML="Searching…";
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/raw/graph/path`,{method:"POST",body:{start_id:a,end_id:b,max_depth:6}});
+    if(!d.found){$("pOut").innerHTML=`<span style="color:var(--amber)">No path within 6 hops.</span>`;return;}
+    $("pOut").innerHTML=`<div style="color:var(--green);margin-bottom:6px">${d.length} hops</div>`+
+      d.nodes.map((n,i)=>`<span class="chip" style="cursor:pointer" data-id="${esc(n.id)}">${esc(n.name)}</span>${i<d.nodes.length-1?' <span style="color:var(--dim)">→</span> ':''}`).join("");
+    $("pOut").querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>openEntity(c.dataset.id)));
+  }catch(e){$("pOut").innerHTML=`<span style="color:var(--red)">${esc(e.message)}</span>`;}
+}
+
+// ── Bakes ──
+let bakePoll=null;
+async function loadBakes(){
+  const tb=$("bakeRows");
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/baked`);
+    $("bakeCount").textContent=d.total+" bakes";
+    if(!d.bakes.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty">No bakes yet. Create one with + Bake.</div></td></tr>`;}
+    else tb.innerHTML=d.bakes.map(b=>`<tr>
+      <td><b>${esc(b.name)}</b></td><td>${esc(b.format||"")}</td>
+      <td><span class="st ${esc(b.status||"")}">${esc(b.status||"?")}</span></td>
+      <td>${b.entity_count??"—"}</td><td>${esc(b.size_fmt||"—")}</td>
+      <td style="color:var(--muted)">${esc((b.baked_at||b.started_at||"").slice(0,19).replace("T"," "))}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" data-act="search" data-n="${esc(b.name)}" ${["jsonl","json"].includes(b.format)?"":"disabled"}>⌕</button>
+        <button class="btn sm" data-act="dl" data-n="${esc(b.name)}" ${b.status==="done"?"":"disabled"}>⤓</button>
+        <button class="btn sm danger" data-act="del" data-n="${esc(b.name)}">🗑</button>
+      </td></tr>`).join("");
+    tb.querySelectorAll("button[data-act]").forEach(btn=>btn.addEventListener("click",()=>bakeAction(btn.dataset.act,btn.dataset.n)));
+    const running=d.bakes.some(b=>b.status==="running");
+    if(running&&!bakePoll)bakePoll=setInterval(loadBakes,2000);
+    if(!running&&bakePoll){clearInterval(bakePoll);bakePoll=null;}
+  }catch(e){tb.innerHTML=`<tr><td colspan="7"><div class="empty">${esc(e.message)}</div></td></tr>`;}
+}
+async function bakeAction(act,name){
+  if(act==="del"){if(!confirm(`Delete bake "${name}"?`))return;
+    try{await api(`/${encodeURIComponent(db())}/baked/${encodeURIComponent(name)}`,{method:"DELETE"});toast("Bake deleted","ok");loadBakes();}catch(e){toast(e.message,"err");}}
+  if(act==="dl"){
+    try{const r=await api(`/${encodeURIComponent(db())}/baked/${encodeURIComponent(name)}/download`,{raw:true});
+      const blob=await r.blob();const u=URL.createObjectURL(blob);const a=document.createElement("a");a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);}catch(e){toast(e.message,"err");}}
+  if(act==="search"){
+    const q=prompt("Search within bake '"+name+"':","");if(q===null)return;
+    try{const d=await api(`/${encodeURIComponent(db())}/baked/${encodeURIComponent(name)}/search`,{method:"POST",body:{query:q,limit:25}});
+      $("bakeDetail").innerHTML=`<div class="ph" style="border:0;padding:0 0 8px"><i>⌕</i> ${d.total_matched} matched in "${esc(name)}"</div>`+
+        d.results.map(r=>`<div class="rel"><span class="rk">${(r.score*100|0)}%</span> <b>${esc(r.name)}</b> <span class="dir">${esc((r.summary||"").slice(0,80))}</span></div>`).join("");
+    }catch(e){toast(e.message,"err");}}
+}
+async function startBake(){
+  const body={name:$("bName").value.trim()||"default",format:$("bFormat").value,
+    include_stubs:$("bStubs").checked,include_vectors:$("bVectors").checked};
+  try{await api(`/${encodeURIComponent(db())}/baked`,{method:"POST",body});toast("Bake started","ok");$("bakeDlg").close();loadBakes();}
+  catch(e){toast(e.message,"err");}
+}
+
+// ── Activity ──
+function renderActivity(){renderFeed($("actFeed"),60);}
+
+// ── Settings ──
+async function loadSettings(){
+  // databases
+  const dbs=window._dbs||[];
+  $("dbRows").innerHTML=dbs.map(d=>`<tr><td><b>${esc(d.name)}</b>${d.name===db()?' <span class="badge">active</span>':""}</td><td>${d.entity_count}</td>
+    <td><button class="btn sm" data-db="${esc(d.name)}">use</button></td></tr>`).join("");
+  $("dbRows").querySelectorAll("button[data-db]").forEach(b=>b.addEventListener("click",()=>{$("dbSel").value=b.dataset.db;loadEntities();loadSettings();}));
+  // active key
+  $("activeKey").value=getKey();
+  // keys list
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/keys`);
+    $("keyMode").textContent=d.open_access?"open access":"key required";
+    $("keyRows").innerHTML=d.keys.length?d.keys.map(k=>`<tr><td>${esc(k.label||k)}</td><td>${esc((k.scopes||[]).join(", "))}</td>
+      <td><button class="btn sm danger" data-lbl="${esc(k.label||k)}">revoke</button></td></tr>`).join("")
+      :`<tr><td colspan="3"><div class="empty" style="padding:14px">No keys — database is open.</div></td></tr>`;
+    $("keyRows").querySelectorAll("button[data-lbl]").forEach(b=>b.addEventListener("click",()=>revokeKey(b.dataset.lbl)));
+  }catch(e){$("keyRows").innerHTML=`<tr><td colspan="3"><div class="empty">${esc(e.message)}</div></td></tr>`;}
+  // vector models
+  if(!vecModels.length){try{vecModels=(await api(`/${encodeURIComponent(db())}/raw/vectorize/models`)).models;}catch{}}
+  const vm=$("vModel");
+  vm.innerHTML=vecModels.map(m=>`<option value="${esc(m.model)}">${esc(m.model)} · ${esc(m.provider)} · ${m.dimensions}d</option>`).join("");
+  // default to a local model
+  const local=vecModels.find(m=>m.provider==="local"); if(local)vm.value=local.model;
+  updateVModelHint();
+  pollVecStatus();
+}
+function updateVModelHint(){const m=vecModels.find(x=>x.model===$("vModel").value);
+  $("vModelHint").textContent=m?(m.description+(m.cost_per_1m?` · $${m.cost_per_1m}/1M tokens`:" · free, offline")):"";}
+async function genKey(){
+  const label=$("newKeyLabel").value.trim()||"default";
+  try{const d=await api(`/${encodeURIComponent(db())}/keys`,{method:"POST",body:{label,scopes:["read","write"]}});
+    prompt("Key generated — copy it now (shown only once):",d.key);
+    localStorage.setItem("adb_key",d.key);toast("Key generated & set active","ok");loadSettings();}
+  catch(e){toast(e.message,"err");}
+}
+async function revokeKey(label){if(!confirm(`Revoke key "${label}"?`))return;
+  try{await api(`/${encodeURIComponent(db())}/keys/${encodeURIComponent(label)}`,{method:"DELETE"});toast("Key revoked","ok");loadSettings();}catch(e){toast(e.message,"err");}}
+
+// ── Vectorize ──
+let vecPoll=null;
+async function pollVecStatus(){
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/raw/vectorize/status`);
+    const info=d.info||{};const running=d.running||info.status==="running";
+    $("vStart").disabled=running;$("vCancel").disabled=!running;
+    let html="";
+    if(info.status){
+      const pct=info.total?Math.round(((info.vectorized||0)+(info.skipped||0))/info.total*100):0;
+      html=`<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><span class="st ${info.status==="done"?"done":info.status==="error"?"error":"running"}">${esc(info.status)}</span>
+        <span style="color:var(--muted)">${esc(info.model||"")}</span></div>`;
+      if(info.total!==undefined)html+=`<div class="bar" style="height:6px"><i style="width:${pct}%"></i></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">${info.vectorized||0} embedded · ${info.skipped||0} skipped · ${info.failed||0} failed / ${info.total} total</div>`;
+      if(info.session_cost)html+=`<div style="font-size:11.5px;color:var(--dim)">cost: $${info.session_cost}</div>`;
+      if(info.last_error||info.error)html+=`<div style="font-size:11.5px;color:var(--red);margin-top:4px">${esc(info.last_error||info.error)}</div>`;
+    }else html=`<div class="hint">No vectorization has run yet.</div>`;
+    $("vStatus").innerHTML=html;
+    if(running&&!vecPoll&&curView==="settings")vecPoll=setInterval(pollVecStatus,1500);
+    if(!running&&vecPoll){clearInterval(vecPoll);vecPoll=null;if(info.status==="done")loadEntities();}
+  }catch(e){/* silent */}
+}
+async function startVec(){
+  try{await api(`/${encodeURIComponent(db())}/raw/vectorize`,{method:"POST",body:{
+    model:$("vModel").value,force_rewrite:$("vForce").checked,include_stubs:$("vStubs").checked}});
+    toast("Vectorization started","ok");pollVecStatus();}
+  catch(e){toast(e.message,"err");}
+}
+async function cancelVec(){try{await api(`/${encodeURIComponent(db())}/raw/vectorize/cancel`,{method:"POST"});toast("Cancelled","ok");pollVecStatus();}catch(e){toast(e.message,"err");}}
+
+// ── Import ──
+function impBody(){return{source_type:$("impType").value,source:$("impPath").value.trim(),db:$("impDb").value.trim()};}
+async function impPost(path,body){
+  const r=await fetch("/api/import"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const txt=await r.text();let j={};try{j=JSON.parse(txt);}catch{}
+  if(!r.ok)throw new Error((j.detail&&(j.detail.message||j.detail))||txt||("HTTP "+r.status));return j;}
+async function importPreview(){
+  const out=$("impOut");out.style.display="block";out.innerHTML="Reading source…";
+  const b=impBody();if(!b.source){out.innerHTML="<span style='color:var(--pink)'>Enter a source file path.</span>";return;}
+  try{const j=await impPost("/preview",b);
     out.innerHTML=`<div style="color:var(--cyan);margin-bottom:6px">${j.est_entities} entities · ${j.est_relations} relations · ${j.tables.length} tables</div>`+
       j.tables.map(t=>`<div style="padding:2px 0"><b>${esc(t.name)}</b> <span style="color:var(--muted)">· ${t.rows} rows</span>${t.foreign_keys.length?` <span style="color:var(--violet)">· ${t.foreign_keys.map(esc).join(", ")}</span>`:""}</div>`).join("");
   }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
 }
 async function importRun(){
-  const out=$("impOut"); out.style.display="block"; out.innerHTML="Importing…";
-  const b=impBody(); if(!b.source||!b.db){out.innerHTML="<span style='color:var(--pink)'>Source path and target name are required.</span>";return;}
-  try{
-    const j=await postJSON("/api/import/run",b);
+  const out=$("impOut");out.style.display="block";out.innerHTML="Importing…";
+  const b=impBody();if(!b.source||!b.db){out.innerHTML="<span style='color:var(--pink)'>Source path and target name are required.</span>";return;}
+  try{const j=await impPost("/run",b);
     out.innerHTML=`<span style="color:var(--green)">Imported ${j.entities} entities, ${j.relations} relations in ${j.elapsed_s}s into "${esc(j.db)}".</span>`;
-    await loadDatabases();
-    const sel=$("dbSel"); if([...sel.options].some(o=>o.value===b.db)){sel.value=b.db; await loadEntities();}
+    await loadDatabases();const sel=$("dbSel");if([...sel.options].some(o=>o.value===b.db)){sel.value=b.db;await loadEntities();}
+    toast("Import complete","ok");
   }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
 }
 
-$("dbSel").addEventListener("change",loadEntities);
+// ── Wiring ──
+$("dbSel").addEventListener("change",()=>loadEntities());
 $("reload").addEventListener("click",loadEntities);
-$("search").addEventListener("input",render);
+$("search").addEventListener("keydown",e=>{if(e.key==="Enter")runSearch();});
+$("fType").addEventListener("change",runSearch);
+$("fStatus").addEventListener("change",()=>{loadEntities();});
+$("moreBtn").addEventListener("click",loadMore);
+$("modeSeg").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  searchMode=b.dataset.mode;$("modeSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  $("vecModel").style.display=searchMode==="vector"?"":"none";
+  if(searchMode==="vector"&&!$("vecModel").options.length&&vecModels.length)
+    $("vecModel").innerHTML=vecModels.map(m=>`<option>${esc(m.model)}</option>`).join("");
+  runSearch();
+}));
 $("newBtn").addEventListener("click",()=>$("newDlg").showModal());
-$("bakeBtn").addEventListener("click",()=>alert("Bake factory — coming soon. Snapshots are baked from the raw entries into purpose-built views."));
+$("nCancel").addEventListener("click",()=>$("newDlg").close());
+$("newForm").addEventListener("submit",ev=>{ev.preventDefault();if(ev.submitter&&ev.submitter.value==="cancel"){$("newDlg").close();return;}createEntity();});
+$("eCancel").addEventListener("click",()=>$("editDlg").close());
+$("eSave").addEventListener("click",saveEdit);
 $("impBtn").addEventListener("click",()=>{$("impOut").style.display="none";$("impDlg").showModal();});
 $("impClose").addEventListener("click",()=>$("impDlg").close());
 $("impPrev").addEventListener("click",importPreview);
 $("impRun").addEventListener("click",importRun);
-document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>{document.querySelectorAll(".rail .nav").forEach(x=>x.classList.remove("active"));n.classList.add("active");}));
-$("newForm").addEventListener("submit",ev=>{if(ev.submitter&&ev.submitter.value==="cancel")return;
-  const name=$("nName").value.trim(),type=$("nType").value.trim()||"concept";
-  if(name)createEntity(name,type).catch(e=>alert(e.message));$("nName").value="";});
+$("gRun").addEventListener("click",runTraverse);
+$("pRun").addEventListener("click",runPath);
+$("bakeRefresh").addEventListener("click",loadBakes);
+$("bakeNew").addEventListener("click",()=>$("bakeDlg").showModal());
+$("bCancel").addEventListener("click",()=>$("bakeDlg").close());
+$("bGo").addEventListener("click",startBake);
+$("newDbBtn").addEventListener("click",()=>{const n=$("newDbName").value.trim();if(!n)return;
+  const o=document.createElement("option");o.value=n;o.textContent=n+" · 0";$("dbSel").appendChild(o);$("dbSel").value=n;
+  toast(`Switched to "${n}" — create an entity or import to persist it`,"ok");$("newDbName").value="";loadSettings();});
+$("activeKey").addEventListener("change",()=>{localStorage.setItem("adb_key",$("activeKey").value.trim());toast("Active key updated","ok");});
+$("newKeyBtn").addEventListener("click",genKey);
+$("vModel").addEventListener("change",updateVModelHint);
+$("vStart").addEventListener("click",startVec);
+$("vCancel").addEventListener("click",cancelVec);
 
-loadDatabases().catch(e=>{$("detail").innerHTML=`<div class="empty">Failed to load: ${esc(e.message)}</div>`;$("liveTxt").textContent="offline";document.querySelector(".dot").style.background="var(--pink)";});
+loadDatabases().catch(e=>{$("dashRows").innerHTML=`<div class="empty">Failed to load: ${esc(e.message)}</div>`;setLive(false);});
 </script>
 </body>
 </html>
