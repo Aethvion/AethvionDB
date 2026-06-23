@@ -194,10 +194,12 @@ def _get_google_client():
         with _client_lock:
             if _google_client is None:
                 from google import genai  # google-genai>=1.0.0
-                api_key = os.getenv("GOOGLE_AI_API_KEY", "")
+                from aethviondb.settings_store import get_provider_key
+                api_key = get_provider_key("google")
                 if not api_key:
                     raise RuntimeError(
-                        "GOOGLE_AI_API_KEY is not set. Add it to your .env file."
+                        "Google API key is not set. Add it in the dashboard (Settings → "
+                        "Providers) or set GOOGLE_AI_API_KEY."
                     )
                 _google_client = genai.Client(api_key=api_key, http_options={"api_version": "v1"})
     return _google_client
@@ -215,10 +217,12 @@ def _get_openai_client():
                     raise RuntimeError(
                         "openai package is not installed. Run: pip install openai"
                     )
-                api_key = os.getenv("OPENAI_API_KEY", "")
+                from aethviondb.settings_store import get_provider_key
+                api_key = get_provider_key("openai")
                 if not api_key:
                     raise RuntimeError(
-                        "OPENAI_API_KEY is not set. Add it to your .env file."
+                        "OpenAI API key is not set. Add it in the dashboard (Settings → "
+                        "Providers) or set OPENAI_API_KEY."
                     )
                 _openai_client = OpenAI(api_key=api_key)
     return _openai_client

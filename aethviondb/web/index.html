@@ -285,8 +285,25 @@
 
       <!-- ───────── SETTINGS ───────── -->
       <div class="view" id="v-settings">
+        <div class="panel">
+          <div class="ph"><i>✦</i> Capabilities <span class="tag">what's enabled on this server</span>
+            <button class="btn sm" id="capRefresh" style="margin-left:8px">↻</button></div>
+          <div class="pbody"><div id="capRows"><div class="empty">Loading…</div></div></div>
+        </div>
         <div class="grid2" style="align-items:start">
           <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+            <div class="panel">
+              <div class="ph"><i>🔌</i> Providers &amp; embedding</div>
+              <div class="pbody">
+                <div class="hint" style="margin-bottom:10px">Keys are stored on this host in <code class="k">settings.json</code> and masked when read back. They enable API-based embeddings without a restart.</div>
+                <div class="field"><label>OpenAI API key <span id="oaiState" style="color:var(--dim)"></span></label>
+                  <input id="oaiKey" type="password" placeholder="sk-… (leave blank to keep current)" autocomplete="off"></div>
+                <div class="field"><label>Google API key <span id="ggState" style="color:var(--dim)"></span></label>
+                  <input id="ggKey" type="password" placeholder="AIza… (leave blank to keep current)" autocomplete="off"></div>
+                <div class="field"><label>Default embedding model</label><select id="defModel"></select></div>
+                <button class="btn cyan" id="provSave">Save settings</button>
+              </div>
+            </div>
             <div class="panel">
               <div class="ph"><i>▦</i> Databases</div>
               <div class="pbody">
@@ -771,10 +788,44 @@ async function loadSettings(){
   if(!vecModels.length){try{vecModels=(await api(`/${encodeURIComponent(db())}/raw/vectorize/models`)).models;}catch{}}
   const vm=$("vModel");
   vm.innerHTML=vecModels.map(m=>`<option value="${esc(m.model)}">${esc(m.model)} · ${esc(m.provider)} · ${m.dimensions}d</option>`).join("");
-  // default to a local model
-  const local=vecModels.find(m=>m.provider==="local"); if(local)vm.value=local.model;
+  $("defModel").innerHTML=vm.innerHTML;
+  await loadCapabilities();
+  await loadProviderSettings();
   updateVModelHint();
   pollVecStatus();
+}
+
+// ── Capabilities + provider settings ──
+async function loadCapabilities(){
+  const box=$("capRows");
+  try{
+    const d=await api(`/capabilities`);
+    box.innerHTML=`<table class="tbl"><thead><tr><th>Feature</th><th>Category</th><th>Status</th><th>How to enable</th></tr></thead><tbody>`+
+      d.capabilities.map(c=>{
+        const state=c.ready?["done","ready"]:(c.installed?["running","needs config"]:["error","not installed"]);
+        return `<tr><td><b>${esc(c.name)}</b></td><td style="color:var(--muted)">${esc(c.category)}</td>
+          <td><span class="st ${state[0]}">${state[1]}</span></td>
+          <td style="color:var(--muted);font-size:12px">${c.hint?esc(c.hint):""}${c.install&&!c.installed?` <code class="k">${esc(c.install)}</code>`:""}</td></tr>`;
+      }).join("")+`</tbody></table>`;
+  }catch(e){box.innerHTML=`<div class="empty">${esc(e.message)}</div>`;}
+}
+async function loadProviderSettings(){
+  try{
+    const s=await api(`/settings`);
+    $("oaiState").textContent=s.providers.openai.set?`· stored ${s.providers.openai.hint}`:"· not set";
+    $("ggState").textContent=s.providers.google.set?`· stored ${s.providers.google.hint}`:"· not set";
+    $("oaiKey").value="";$("ggKey").value="";
+    if(s.embedding&&s.embedding.default_model)$("defModel").value=s.embedding.default_model;
+  }catch(e){/* settings endpoint optional */}
+}
+async function saveProviders(){
+  const body={providers:{},embedding:{default_model:$("defModel").value}};
+  const o=$("oaiKey").value.trim(),g=$("ggKey").value.trim();
+  if(o)body.providers.openai={api_key:o};
+  if(g)body.providers.google={api_key:g};
+  try{await api(`/settings`,{method:"PUT",body});toast("Settings saved","ok");
+    await loadProviderSettings();await loadCapabilities();}
+  catch(e){toast(e.message,"err");}
 }
 function updateVModelHint(){const m=vecModels.find(x=>x.model===$("vModel").value);
   $("vModelHint").textContent=m?(m.description+(m.cost_per_1m?` · $${m.cost_per_1m}/1M tokens`:" · free, offline")):"";}
@@ -879,6 +930,8 @@ $("newKeyBtn").addEventListener("click",genKey);
 $("vModel").addEventListener("change",updateVModelHint);
 $("vStart").addEventListener("click",startVec);
 $("vCancel").addEventListener("click",cancelVec);
+$("capRefresh").addEventListener("click",loadCapabilities);
+$("provSave").addEventListener("click",saveProviders);
 
 loadDatabases().catch(e=>{$("dashRows").innerHTML=`<div class="empty">Failed to load: ${esc(e.message)}</div>`;setLive(false);});
 </script>
