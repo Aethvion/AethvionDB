@@ -448,6 +448,25 @@ def _resolve_relations(
 
 class PatchRequest(BaseModel):
     mutations: dict[str, Any] = {}
+    # Optional optimistic-concurrency guard: the version the client last read.
+    # If the entity has since advanced, the patch is rejected with 409 instead
+    # of clobbering the newer state. Can also be supplied via the If-Match header.
+    expected_version: Optional[int] = None
+
+
+def _parse_if_match(if_match: Optional[str]) -> Optional[int]:
+    """Read an integer entity version out of an If-Match header.
+
+    Accepts a bare number or a quoted ETag-style value (e.g. ``"3"`` or ``W/"3"``).
+    Returns None when absent or unparseable, leaving the body field authoritative.
+    """
+    if not if_match:
+        return None
+    token = if_match.strip().lstrip("W/").strip().strip('"')
+    try:
+        return int(token)
+    except ValueError:
+        return None
 
 
 @router.patch("/{db}/raw/entities/{entity_id}")
@@ -457,13 +476,34 @@ async def patch_entity(
     req:       PatchRequest,
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
+    if_match:         Optional[str] = Header(None),
 ):
+    from aethviondb.entity_writer import VersionConflictError
+
     t = time.perf_counter()
     check_auth(_root(db), authorization, x_aethviondb_key)
     w = _writer(db)
     if not w.exists(entity_id):
         raise HTTPException(404, f"Entity '{entity_id}' not found.")
-    entity = w.update(entity_id, req.mutations)
+
+    # Body field wins if both are given; otherwise fall back to the If-Match header.
+    expected = req.expected_version
+    if expected is None:
+        expected = _parse_if_match(if_match)
+
+    try:
+        entity = w.update(entity_id, req.mutations, expected_version=expected)
+    except VersionConflictError as e:
+        raise HTTPException(
+            409,
+            detail={
+                "error": "version_conflict",
+                "message": str(e),
+                "entity_id": e.entity_id,
+                "expected_version": e.expected,
+                "current_version": e.actual,
+            },
+        )
     return envelope({"entity": entity, "action": "patched"}, db=db, took_start=t)
 
 

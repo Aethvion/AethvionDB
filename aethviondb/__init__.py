@@ -15,9 +15,16 @@ Public surface
 """
 
 from .name_index import NameIndex
-from .entity_writer import EntityWriter
+from .entity_writer import EntityWriter, VersionConflictError
 from .validator import Validator
 from .distiller import ContentDistiller
 
 __version__ = "0.1.0"
-__all__ = ["NameIndex", "EntityWriter", "Validator", "ContentDistiller", "__version__"]
+__all__ = [
+    "NameIndex",
+    "EntityWriter",
+    "VersionConflictError",
+    "Validator",
+    "ContentDistiller",
+    "__version__",
+]

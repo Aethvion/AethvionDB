@@ -21,6 +21,7 @@ data/modes/worldsim/entities/
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -33,6 +34,46 @@ from .name_index import NameIndex, get_index
 from . import snapshot as _snapshot
 
 logger = get_logger(__name__)
+
+
+class VersionConflictError(RuntimeError):
+    """
+    Raised when an optimistic-concurrency update is attempted with a stale
+    ``expected_version``. The caller read the entity at one version, another
+    writer advanced it, and applying the stale edit would silently clobber that
+    change. The caller should re-read and rebase.
+    """
+
+    def __init__(self, entity_id: str, expected: int, actual: int) -> None:
+        self.entity_id = entity_id
+        self.expected = expected
+        self.actual = actual
+        super().__init__(
+            f"Version conflict on {entity_id!r}: expected v{expected}, "
+            f"but current is v{actual}. Re-read and retry."
+        )
+
+
+# Per-entity write locks, keyed by the absolute entity-file path so they are
+# shared across every EntityWriter instance pointing at the same database
+# (the API builds a fresh writer per request). This makes the read-modify-write
+# in update()/delete() atomic *within this process*.
+#
+# This is the seam for cross-process safety later: when the multiplayer/edge
+# story arrives, a file lock (e.g. filelock.FileLock on "<path>.lock") composes
+# in here without touching any call site.
+_locks_guard: threading.Lock = threading.Lock()
+_entity_locks: dict[str, threading.Lock] = {}
+
+
+def _lock_for(path: Path) -> threading.Lock:
+    key = str(path.resolve())
+    with _locks_guard:
+        lock = _entity_locks.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _entity_locks[key] = lock
+        return lock
 
 
 class EntityWriter:
@@ -183,6 +224,7 @@ class EntityWriter:
         entity_id: str,
         mutations: dict[str, Any],
         merge_sections: bool = True,
+        expected_version: Optional[int] = None,
     ) -> dict[str, Any]:
         """
         Update an existing entity.
@@ -193,64 +235,77 @@ class EntityWriter:
 
         The version counter and updated timestamp are always incremented.
 
+        Concurrency
+        -----------
+        The whole read-modify-write runs under a per-entity lock, so two writers
+        in this process can never interleave and lose an update. Pass
+        *expected_version* for optimistic concurrency: if the entity's current
+        version differs, the edit is rejected with ``VersionConflictError``
+        instead of silently clobbering the newer state.
+
         Returns the updated entity.
         """
-        entity = self.get(entity_id)
-        if entity is None:
-            raise FileNotFoundError(f"Entity {entity_id!r} not found")
+        with _lock_for(self._path_for(entity_id)):
+            entity = self.get(entity_id)
+            if entity is None:
+                raise FileNotFoundError(f"Entity {entity_id!r} not found")
 
-        # Mutate top-level fields (except protected ones)
-        protected = {"id", "created", "version", "sections"}
-        old_name  = entity.get("name")
-        for k, v in mutations.items():
-            if k not in protected:
-                entity[k] = v
+            current_version = entity.get("version", 0)
+            if expected_version is not None and current_version != expected_version:
+                raise VersionConflictError(entity_id, expected_version, current_version)
 
-        # Propagate name change to NameIndex
-        new_name = entity.get("name")
-        if new_name and new_name != old_name:
-            self._index.register(new_name, entity_id)
-            if old_name:
-                self._index.unregister(old_name)
+            # Mutate top-level fields (except protected ones)
+            protected = {"id", "created", "version", "sections"}
+            old_name  = entity.get("name")
+            for k, v in mutations.items():
+                if k not in protected:
+                    entity[k] = v
 
-        # Merge or replace sections
-        incoming_sections = mutations.get("sections", {})
-        if incoming_sections:
-            if merge_sections:
-                for sec, val in incoming_sections.items():
-                    existing = entity["sections"].get(sec)
-                    if isinstance(existing, dict) and isinstance(val, dict):
-                        existing.update(val)
-                    elif isinstance(existing, list) and isinstance(val, list):
-                        # Append new items (dedup by json repr for simple cases)
-                        seen = {json.dumps(x, sort_keys=True) for x in existing}
-                        for item in val:
-                            key = json.dumps(item, sort_keys=True)
-                            if key not in seen:
-                                existing.append(item)
-                                seen.add(key)
-                    else:
-                        entity["sections"][sec] = val
-            else:
-                entity["sections"].update(incoming_sections)
+            # Propagate name change to NameIndex
+            new_name = entity.get("name")
+            if new_name and new_name != old_name:
+                self._index.register(new_name, entity_id)
+                if old_name:
+                    self._index.unregister(old_name)
 
-        # Bump metadata
-        entity["version"] = entity.get("version", 0) + 1
-        entity["updated"] = _now_iso()
+            # Merge or replace sections
+            incoming_sections = mutations.get("sections", {})
+            if incoming_sections:
+                if merge_sections:
+                    for sec, val in incoming_sections.items():
+                        existing = entity["sections"].get(sec)
+                        if isinstance(existing, dict) and isinstance(val, dict):
+                            existing.update(val)
+                        elif isinstance(existing, list) and isinstance(val, list):
+                            # Append new items (dedup by json repr for simple cases)
+                            seen = {json.dumps(x, sort_keys=True) for x in existing}
+                            for item in val:
+                                key = json.dumps(item, sort_keys=True)
+                                if key not in seen:
+                                    existing.append(item)
+                                    seen.add(key)
+                        else:
+                            entity["sections"][sec] = val
+                else:
+                    entity["sections"].update(incoming_sections)
 
-        errors = validate(entity)
-        if errors:
-            logger.warning(f"[EntityWriter] Schema warnings after update of {entity_id}: {errors}")
+            # Bump metadata
+            entity["version"] = current_version + 1
+            entity["updated"] = _now_iso()
 
-        self._write(entity)
+            errors = validate(entity)
+            if errors:
+                logger.warning(f"[EntityWriter] Schema warnings after update of {entity_id}: {errors}")
 
-        # Re-index any new aliases
-        aliases = entity["sections"]["core"].get("aliases", [])
-        if aliases:
-            self._index.register_aliases(entity_id, aliases)
+            self._write(entity)
 
-        logger.debug(f"[EntityWriter] Updated {entity_id} → v{entity['version']}")
-        return entity
+            # Re-index any new aliases
+            aliases = entity["sections"]["core"].get("aliases", [])
+            if aliases:
+                self._index.register_aliases(entity_id, aliases)
+
+            logger.debug(f"[EntityWriter] Updated {entity_id} → v{entity['version']}")
+            return entity
 
     def delete(self, entity_id: str, *, soft: bool = True) -> bool:
         """
@@ -258,19 +313,20 @@ class EntityWriter:
         Hard deletion is irreversible — use with caution.
         Returns True if the entity existed.
         """
-        if not self.exists(entity_id):
-            return False
-        if soft:
-            entity = self.get(entity_id)
-            entity["status"] = "deleted"    # type: ignore[index]
-            entity["updated"] = _now_iso()  # type: ignore[index]
-            self._write(entity)             # type: ignore[arg-type]
-            logger.info(f"[EntityWriter] Soft-deleted {entity_id}")
-        else:
-            self._path_for(entity_id).unlink(missing_ok=True)
-            _snapshot.remove(self._dir.parent, entity_id)
-            logger.info(f"[EntityWriter] Hard-deleted {entity_id}")
-        return True
+        with _lock_for(self._path_for(entity_id)):
+            if not self.exists(entity_id):
+                return False
+            if soft:
+                entity = self.get(entity_id)
+                entity["status"] = "deleted"    # type: ignore[index]
+                entity["updated"] = _now_iso()  # type: ignore[index]
+                self._write(entity)             # type: ignore[arg-type]
+                logger.info(f"[EntityWriter] Soft-deleted {entity_id}")
+            else:
+                self._path_for(entity_id).unlink(missing_ok=True)
+                _snapshot.remove(self._dir.parent, entity_id)
+                logger.info(f"[EntityWriter] Hard-deleted {entity_id}")
+            return True
 
     # Bulk operations
 
