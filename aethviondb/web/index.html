@@ -21,7 +21,7 @@
       linear-gradient(transparent 95%, #ffffff05 95%), linear-gradient(90deg,transparent 95%, #ffffff05 95%);
     background-size:auto,auto,28px 28px,28px 28px;
   }
-  .app{display:grid; grid-template-columns:62px 1fr; height:100vh}
+  .app{display:grid; grid-template-columns:62px 1fr; height:100vh; overflow:hidden}
   .rail{background:var(--bg2); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:6px}
   .logo{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:15px;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#04111c;margin-bottom:10px;box-shadow:0 0 18px #22d3ee55}
   .nav{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:var(--muted);cursor:pointer;font-size:16px;border:1px solid transparent;transition:.15s;position:relative}
@@ -30,7 +30,7 @@
   .nav .lbl{position:absolute;left:48px;background:var(--panel-solid);border:1px solid var(--line2);border-radius:7px;padding:4px 9px;font-size:11.5px;color:var(--text);white-space:nowrap;opacity:0;pointer-events:none;transform:translateX(-4px);transition:.12s;z-index:30}
   .nav:hover .lbl{opacity:1;transform:translateX(0)}
   .rail .sp{flex:1}
-  .main{display:grid;grid-template-rows:54px 1fr;min-width:0}
+  .main{display:grid;grid-template-rows:54px 1fr;min-width:0;min-height:0}
   .top{display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0c121f,#0a0e1a)}
   .top h1{font-size:15px;margin:0;font-weight:700;letter-spacing:.4px}
   .top h1 b{color:var(--cyan)}
@@ -57,8 +57,8 @@
   .card .d{font-size:11px;margin-top:2px;color:var(--dim)}
   .card .accent{position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--cyan)}
   .card .spark{position:absolute;right:12px;bottom:10px;opacity:.5}
-  .grid{display:grid;grid-template-columns:340px 1fr 320px;gap:14px;flex:1;min-height:430px}
-  .grid2{display:grid;grid-template-columns:360px 1fr;gap:14px;flex:1;min-height:0}
+  .grid{display:grid;grid-template-columns:340px 1fr 320px;grid-template-rows:minmax(0,1fr);gap:14px;flex:1;min-height:0}
+  .grid2{display:grid;grid-template-columns:360px 1fr;grid-template-rows:minmax(0,1fr);gap:14px;flex:1;min-height:0}
   .panel{background:var(--panel);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
   .ph{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700;letter-spacing:.3px}
   .ph .tag{margin-left:auto;font-weight:500;font-size:11px;color:var(--muted)}
@@ -616,8 +616,15 @@ async function loadEntities(){
   const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}`);
   entities=d.entities||[];
   nextCursor=d._cursor||null;
-  computeStats(d.total??entities.length);
+  explorerTotal=d.total??entities.length;
+  computeStats(explorerTotal);
   renderDashboard(); renderList(entities);
+}
+let explorerTotal=0;
+function updateExpCount(){
+  const stLabel=$("fStatus").value==="all"?"total":$("fStatus").value;
+  const shown=entities.length;
+  $("expCount").textContent=shown<explorerTotal?`${shown.toLocaleString()} of ${explorerTotal.toLocaleString()} ${stLabel}`:`${explorerTotal.toLocaleString()} ${stLabel}`;
 }
 
 function computeStats(total){
@@ -632,8 +639,8 @@ function computeStats(total){
   $("sRel").textContent=rel.toLocaleString();
   $("sW24").textContent=w24.toLocaleString();
   $("sVec").textContent=Math.round(vec/n*100)+"%";
-  $("expCount").textContent=total+" total";
-  $("dashCount").textContent=n+" loaded";
+  explorerTotal=total; updateExpCount();
+  $("dashCount").textContent=n.toLocaleString()+" loaded";
   $("mTypes").textContent=types;$("mTypesBar").style.width=Math.min(100,types*8)+"%";
   $("mStubs").textContent=stubs;$("mStubsBar").style.width=Math.min(100,stubs/n*100)+"%";
   $("mVec").textContent=vec;$("mVecBar").style.width=Math.round(vec/n*100)+"%";
@@ -721,7 +728,7 @@ async function loadMore(){
   const status=$("fStatus").value;
   const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}&cursor=${encodeURIComponent(nextCursor)}`);
   entities=entities.concat(d.entities||[]); nextCursor=d._cursor||null;
-  renderList(entities);
+  renderList(entities); updateExpCount();
 }
 
 async function openEntity(id){
