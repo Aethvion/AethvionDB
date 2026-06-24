@@ -185,6 +185,15 @@
   .improw .ir-size{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
   .improw .ir-bad{color:var(--red);font-size:10px;border:1px solid #f8717144;border-radius:5px;padding:0 5px}
   .improw input[type=checkbox],.implisthead input[type=checkbox]{width:16px;height:16px;accent-color:var(--cyan)}
+  .improw .ir-status{flex:none;min-width:96px;text-align:right;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .improw.importing{background:#fbbf2412}
+  .improw.done{background:#34d39908}
+  .spinner{display:inline-block;width:11px;height:11px;border:2px solid #fbbf2455;border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px;margin-right:5px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .imp-pbar{height:7px;border-radius:5px;background:#16213a;overflow:hidden;margin:4px 0 8px}
+  .imp-pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));transition:width .3s;width:0}
+  .imp-folder{display:flex;gap:8px}
+  .imp-folder input{flex:1;min-width:0}
 </style>
 </head>
 <body>
@@ -195,6 +204,7 @@
     <div class="nav" data-view="explorer">▤<span class="lbl">Explorer</span></div>
     <div class="nav" data-view="graph">⬡<span class="lbl">Knowledge graph</span></div>
     <div class="nav" data-view="bakes">▦<span class="lbl">Bakes</span></div>
+    <div class="nav" data-view="import">⤓<span class="lbl">Import</span></div>
     <div class="nav" data-view="activity">≋<span class="lbl">Activity</span></div>
     <div class="sp"></div>
     <div class="nav" data-view="settings">⚙<span class="lbl">Settings</span></div>
@@ -321,6 +331,36 @@
         </div>
       </div>
 
+      <!-- ───────── IMPORT ───────── -->
+      <div class="view" id="v-import">
+        <div class="grid2">
+          <div class="panel">
+            <div class="ph"><i>⤓</i> Source <span class="tag" id="impCount"></span></div>
+            <div class="pbody">
+              <div class="field"><label>Source type</label><select id="impType"><option value="sqlite">SQLite (.db / .sqlite / .sqlite3)</option></select></div>
+              <div class="field"><label>Folder to scan <span style="color:var(--dim)">· searched recursively</span></label>
+                <div class="imp-folder">
+                  <input id="impFolder" placeholder="C:\path\to\databases" autocomplete="off">
+                  <button class="btn" type="button" id="impBrowse">Browse…</button>
+                  <button class="btn cyan" type="button" id="impScan">Scan</button>
+                </div></div>
+              <div id="impList"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="ph"><i>▦</i> Import</div>
+            <div class="pbody">
+              <div class="hint" style="margin-bottom:14px">Pick a folder, scan it for matching files, then choose which to import. Each becomes entities (tables → kinds, rows → entities, foreign keys → relations).</div>
+              <div class="field"><label>Target database <span style="color:var(--dim)">· created if new</span></label>
+                <input id="impDb" placeholder="chinook" autocomplete="off"></div>
+              <div id="impOptions"></div>
+              <button class="btn cyan" type="button" id="impRun" style="width:100%;margin-top:4px">Import selected</button>
+              <div id="impProgress" style="margin-top:16px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- ───────── ACTIVITY ───────── -->
       <div class="view" id="v-activity">
         <div class="panel" style="flex:1">
@@ -438,29 +478,6 @@
   <div class="actions"><button class="btn" id="eCancel">Cancel</button><button class="btn cyan" id="eSave">Save (PATCH)</button></div>
 </div></dialog>
 
-<dialog id="impDlg"><div class="dlg">
-  <h3>Import databases</h3>
-  <div class="hint" style="margin-bottom:4px">Pick a folder; it's scanned recursively for matching files. Select which to import — each becomes entities (tables → kinds, rows → entities, foreign keys → relations).</div>
-  <div class="drows">
-    <div class="drow"><div class="lhs"><div class="t">Source type</div></div>
-      <div class="rhs"><select id="impType"><option value="sqlite">SQLite (.db / .sqlite / .sqlite3)</option></select></div></div>
-    <div class="dstack" style="border-bottom:0"><div class="t">Folder to scan</div><div class="s">Searched recursively, including sub-folders</div>
-      <div style="display:flex;gap:8px">
-        <input id="impFolder" placeholder="C:\path\to\databases" autocomplete="off" style="flex:1">
-        <button class="btn" type="button" id="impBrowse">Browse…</button>
-        <button class="btn cyan" type="button" id="impScan">Scan</button>
-      </div></div>
-  </div>
-  <div id="impList" class="implist" style="display:none"></div>
-  <div class="drow"><div class="lhs"><div class="t">Target database</div><div class="s">All selected files import here · created if new</div></div>
-    <div class="rhs"><input id="impDb" placeholder="chinook" autocomplete="off"></div></div>
-  <div class="out" id="impOut"></div>
-  <div class="actions">
-    <button class="btn" type="button" id="impClose">Close</button>
-    <button class="btn cyan" type="button" id="impRun">Import selected</button>
-  </div>
-</div></dialog>
-
 <dialog id="bakeDlg"><div class="dlg">
   <h3>Bake a snapshot</h3>
   <div class="hint" style="margin-bottom:4px">Flattens the raw entities into a downloadable snapshot for downstream consumers.</div>
@@ -530,6 +547,7 @@ function switchView(v){
   if(v==="bakes") loadBakes();
   if(v==="settings") loadSettings();
   if(v==="activity") renderActivity();
+  if(v==="import") loadSources();
 }
 document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 
@@ -975,42 +993,65 @@ function slugDb(folder){
 }
 async function importScan(){
   const folder=$("impFolder").value.trim();
-  const list=$("impList");list.style.display="block";
+  const list=$("impList");
   if(!folder){toast("Pick or enter a folder first","err");return;}
-  list.innerHTML='<div class="hint" style="padding:12px">Scanning…</div>';
+  list.innerHTML='<div class="implist"><div class="hint" style="padding:12px">Scanning…</div></div>';
+  $("impCount").textContent="scanning…";
   try{
     const j=await impPost("/scan",{source_type:$("impType").value,folder});
     scannedFiles=j.files;
-    if(!j.count){list.innerHTML='<div class="empty" style="padding:16px">No matching files in this folder or its sub-folders.</div>';return;}
+    $("impCount").textContent=`${j.count} found`;
+    if(!j.count){list.innerHTML='<div class="implist"><div class="empty" style="padding:16px">No matching files in this folder or its sub-folders.</div></div>';return;}
     if(!$("impDb").value)$("impDb").value=slugDb(folder);
-    list.innerHTML=`<div class="implisthead"><span>${j.valid_count} of ${j.count} importable</span>
+    list.innerHTML=`<div class="implist"><div class="implisthead"><span>${j.valid_count} of ${j.count} importable</span>
         <label style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="impAll" checked> select all</label></div>`+
-      j.files.map((f,i)=>`<label class="improw ${f.valid?'':'bad'}">
+      j.files.map((f,i)=>`<label class="improw ${f.valid?'':'bad'}" data-i="${i}">
         <input type="checkbox" class="impchk" data-i="${i}" ${f.valid?'checked':'disabled'}>
         <span class="ir-name" title="${esc(f.path)}">${esc(f.rel)}</span>
         <span class="ir-size">${esc(f.size_fmt)}</span>
-        ${f.valid?'':'<span class="ir-bad">invalid</span>'}</label>`).join("");
+        <span class="ir-status">${f.valid?'':'<span class="ir-bad">invalid</span>'}</span></label>`).join("")+`</div>`;
     const all=$("impAll");
     if(all)all.addEventListener("change",()=>list.querySelectorAll(".impchk:not(:disabled)").forEach(c=>c.checked=all.checked));
-  }catch(e){list.innerHTML=`<div class="empty" style="padding:16px;color:var(--pink)">${esc(e.message)}</div>`;}
+  }catch(e){list.innerHTML=`<div class="implist"><div class="empty" style="padding:16px;color:var(--pink)">${esc(e.message)}</div></div>`;$("impCount").textContent="scan failed";}
 }
+let importing=false;
 async function importSelected(){
+  if(importing)return;
   const target=$("impDb").value.trim();
-  const out=$("impOut");out.style.display="block";
-  if(!target){out.innerHTML="<span style='color:var(--pink)'>Enter a target database name.</span>";return;}
-  const picked=[...document.querySelectorAll(".impchk:checked")].map(c=>scannedFiles[+c.dataset.i]).filter(Boolean);
-  if(!picked.length){out.innerHTML="<span style='color:var(--pink)'>Select at least one file.</span>";return;}
-  let totE=0,totR=0,fails=[];
-  for(let i=0;i<picked.length;i++){
-    out.innerHTML=`Importing ${i+1}/${picked.length}: <b>${esc(picked[i].name)}</b>…`;
-    try{const j=await impPost("/run",{source_type:$("impType").value,source:picked[i].path,db:target});
-      totE+=j.entities||0;totR+=j.relations||0;}
-    catch(e){fails.push(picked[i].name);}
+  const prog=$("impProgress");
+  if(!target){toast("Enter a target database name","err");return;}
+  const picked=[...document.querySelectorAll(".impchk:checked")].map(c=>({i:+c.dataset.i,f:scannedFiles[+c.dataset.i]})).filter(x=>x.f);
+  if(!picked.length){toast("Select at least one file to import","err");return;}
+  importing=true;$("impRun").disabled=true;
+  let totE=0,totR=0,done=0,fails=0;const t0=Date.now();
+  prog.innerHTML=`<div class="imp-pbar"><i></i></div><div id="impProgTxt" style="font-size:12.5px;color:var(--muted)"></div>`;
+  const bar=prog.querySelector(".imp-pbar i"),txt=$("impProgTxt");
+  for(const {i,f} of picked){
+    const row=document.querySelector(`.improw[data-i="${i}"]`);
+    const st=row?row.querySelector(".ir-status"):null;
+    if(row){row.classList.remove("done");row.classList.add("importing");}
+    const ft0=Date.now();
+    const tick=()=>{if(st)st.innerHTML=`<span class="spinner"></span>${((Date.now()-ft0)/1000).toFixed(0)}s`;};
+    tick();const timer=setInterval(tick,500);
+    txt.innerHTML=`Importing ${done+1}/${picked.length}: <b>${esc(f.name)}</b> — large files can take a while…`;
+    try{
+      const j=await impPost("/run",{source_type:$("impType").value,source:f.path,db:target});
+      clearInterval(timer);totE+=j.entities||0;totR+=j.relations||0;done++;
+      if(row){row.classList.remove("importing");row.classList.add("done");}
+      if(st)st.innerHTML=`<span style="color:var(--green)">✓ ${(j.entities||0).toLocaleString()} · ${j.elapsed_s}s</span>`;
+    }catch(e){
+      clearInterval(timer);fails++;done++;
+      if(row)row.classList.remove("importing");
+      if(st)st.innerHTML=`<span style="color:var(--red)" title="${esc(e.message)}">✗ failed</span>`;
+    }
+    bar.style.width=Math.round(done/picked.length*100)+"%";
   }
-  out.innerHTML=`<span style="color:var(--green)">Imported ${totE} entities, ${totR} relations from ${picked.length-fails.length} file(s) into "${esc(target)}".</span>`+
-    (fails.length?`<div style="color:var(--pink);margin-top:4px">Failed: ${fails.map(esc).join(", ")}</div>`:"");
+  const secs=((Date.now()-t0)/1000).toFixed(1);
+  txt.innerHTML=`<span style="color:var(--green)">Done — ${totE.toLocaleString()} entities, ${totR.toLocaleString()} relations from ${picked.length-fails} file(s) in ${secs}s.</span>`+
+    (fails?` <span style="color:var(--pink)">${fails} failed.</span>`:"");
+  importing=false;$("impRun").disabled=false;
   await loadDatabases();const sel=$("dbSel");if([...sel.options].some(o=>o.value===target)){sel.value=target;await loadEntities();}
-  toast(`Imported ${picked.length-fails.length} file(s)`,"ok");
+  toast(`Imported ${picked.length-fails} file(s)`,"ok");
 }
 
 // ── Wiring ──
@@ -1032,9 +1073,8 @@ $("nCancel").addEventListener("click",()=>$("newDlg").close());
 $("newForm").addEventListener("submit",ev=>{ev.preventDefault();if(ev.submitter&&ev.submitter.value==="cancel"){$("newDlg").close();return;}createEntity();});
 $("eCancel").addEventListener("click",()=>$("editDlg").close());
 $("eSave").addEventListener("click",saveEdit);
-$("impBtn").addEventListener("click",()=>{$("impOut").style.display="none";$("impList").style.display="none";loadSources();$("impDlg").showModal();});
-$("impClose").addEventListener("click",()=>$("impDlg").close());
-$("impType").addEventListener("change",()=>{$("impList").style.display="none";$("impList").innerHTML="";scannedFiles=[];});
+$("impBtn").addEventListener("click",()=>switchView("import"));
+$("impType").addEventListener("change",()=>{$("impList").innerHTML="";$("impCount").textContent="";scannedFiles=[];});
 $("impBrowse").addEventListener("click",importBrowse);
 $("impScan").addEventListener("click",importScan);
 $("impFolder").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();importScan();}});
