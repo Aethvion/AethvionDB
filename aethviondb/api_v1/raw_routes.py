@@ -362,6 +362,55 @@ async def list_entities(
     )
 
 
+def _lite(e: dict) -> dict:
+    """Minimal row for the virtualized list view — just what a row renders."""
+    sec = e.get("sections") or {}
+    return {
+        "id":              e.get("id"),
+        "name":            e.get("name"),
+        "type":            e.get("type"),
+        "kind":            e.get("kind"),
+        "status":          e.get("status"),
+        "relations_count": len(sec.get("relations") or []),
+    }
+
+
+@router.get("/{db}/raw/entities/lite")
+async def list_entities_lite(
+    db:          str,
+    status:      Optional[str] = Query("active"),
+    entity_type: Optional[str] = Query(None, alias="type"),
+    kind:        Optional[str] = Query(None),
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Return *all* matching rows in a compact projection (id/name/type/kind/
+    status/relations_count) for the virtualized explorer — no embeddings, no
+    bodies, no pagination. Cheap enough to send tens of thousands of rows once
+    and window them client-side."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    w = _writer(db)
+
+    def _work() -> list[dict]:
+        entities = w.list_all(include_deleted=(status == "deleted"))
+        if status and status != "all":
+            entities = [e for e in entities if e.get("status") == status]
+        if entity_type:
+            entities = [e for e in entities if e.get("type") == entity_type]
+        if kind:
+            def _km(e: dict) -> bool:
+                ek = e.get("kind")
+                return kind in ek if isinstance(ek, list) else ek == kind
+            entities = [e for e in entities if _km(e)]
+        rows = [_lite(e) for e in entities]
+        rows.sort(key=lambda r: (r.get("name") or "").lower())
+        return rows
+
+    rows = await asyncio.to_thread(_work)
+    return envelope({"rows": rows, "total": len(rows)}, db=db, took_start=t)
+
+
 @router.get("/{db}/raw/entities/{entity_id}")
 async def get_entity(
     db:        str,

@@ -72,7 +72,10 @@
   .seg button{background:#0c1422;border:none;padding:6px 11px;cursor:pointer;color:var(--muted);font-size:12px}
   .seg button.on{background:#22d3ee18;color:var(--cyan)}
   .rows{overflow:auto;flex:1;min-height:0}
-  .row{padding:9px 14px;border-bottom:1px solid #ffffff07;cursor:pointer;transition:.1s}
+  .row{height:52px;box-sizing:border-box;padding:8px 14px;border-bottom:1px solid #ffffff07;cursor:pointer;transition:.1s;overflow:hidden}
+  /* Virtual scroller: a tall sizer holds the scrollbar; only the visible window is rendered. */
+  .vsizer{position:relative;width:100%}
+  .vwin{position:absolute;left:0;right:0;top:0;will-change:transform}
   .row:hover{background:#ffffff06}
   .row.active{background:#22d3ee12;box-shadow:inset 2px 0 var(--cyan)}
   .row .name{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:8px}
@@ -276,9 +279,6 @@
               <button class="btn" id="reload" title="Reload">↻</button>
             </div>
             <div class="rows" id="rows"><div class="empty">Loading…</div></div>
-            <div style="padding:8px;border-top:1px solid var(--line);display:flex;justify-content:center">
-              <button class="btn sm" id="moreBtn" style="display:none">Load more</button>
-            </div>
           </div>
           <div class="panel">
             <div class="ph"><i>◉</i> <span id="detTitle">Entity detail</span> <span class="tag" id="detTag"></span></div>
@@ -510,7 +510,7 @@ function toast(msg,kind){const el=document.createElement("div");el.className="to
   $("toasts").appendChild(el);setTimeout(()=>el.remove(),4200);}
 
 // ── State ──
-let entities=[], activeId=null, nextCursor=null, searchMode="keyword", vecModels=[];
+let entities=[], activeId=null, searchMode="keyword", vecModels=[];
 const db=()=>$("dbSel").value;
 const getKey=()=>localStorage.getItem("adb_key")||"";
 
@@ -548,6 +548,7 @@ function switchView(v){
   if(v==="settings") loadSettings();
   if(v==="activity") renderActivity();
   if(v==="import") loadSources();
+  if(v==="explorer"){ if(explorerDb!==db()||!explorerRows.length){ if($("search").value.trim())runSearch(); else loadExplorer(); } else drawWindow(); }
 }
 document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 
@@ -575,7 +576,7 @@ function onLiveEvent(ev){
   clearTimeout(liveRefreshTimer);
   liveRefreshTimer=setTimeout(()=>{
     if(curView==="dashboard") loadEntities();
-    else if(curView==="explorer" && !$("search").value.trim()) loadEntities();
+    else if(curView==="explorer" && explorerMode==="browse") loadExplorer();
   },900);
 }
 function flashLive(){const d=$("liveDot"); if(!d)return; d.style.background="var(--cyan)"; d.style.boxShadow="0 0 10px var(--cyan)"; setTimeout(()=>{d.style.background="var(--green)";d.style.boxShadow="0 0 8px var(--green)";},400);}
@@ -610,21 +611,51 @@ async function loadDatabases(){
   ensureEvents();
 }
 
-// ── Entities (sample load for dashboard + base explorer list) ──
+// ── Dashboard sample (full entities — for stats, top-list, mini-graph) ──
 async function loadEntities(){
   const status=$("fStatus").value;
   const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}`);
   entities=d.entities||[];
-  nextCursor=d._cursor||null;
-  explorerTotal=d.total??entities.length;
-  computeStats(explorerTotal);
-  renderDashboard(); renderList(entities);
+  computeStats(d.total??entities.length);
+  renderDashboard();
 }
-let explorerTotal=0;
+
+// ── Explorer (virtualized list over the full lite row set) ──
+let explorerRows=[], explorerTotal=0, explorerMode="browse", explorerDb=null;
+const ROW_H=52;
 function updateExpCount(){
   const stLabel=$("fStatus").value==="all"?"total":$("fStatus").value;
-  const shown=entities.length;
-  $("expCount").textContent=shown<explorerTotal?`${shown.toLocaleString()} of ${explorerTotal.toLocaleString()} ${stLabel}`:`${explorerTotal.toLocaleString()} ${stLabel}`;
+  const shown=explorerRows.length;
+  if(explorerMode==="search") $("expCount").textContent=`${shown.toLocaleString()} result${shown===1?"":"s"}`;
+  else $("expCount").textContent=`${shown.toLocaleString()} ${stLabel}`+(explorerTotal&&explorerTotal!==shown?` of ${explorerTotal.toLocaleString()}`:"");
+}
+async function loadExplorer(){
+  explorerMode="browse"; explorerDb=db();
+  const status=$("fStatus").value, type=$("fType").value;
+  const rows=$("rows"); rows.innerHTML='<div class="empty">Loading…</div>';
+  try{
+    let qs=`status=${encodeURIComponent(status)}`; if(type) qs+=`&type=${encodeURIComponent(type)}`;
+    const d=await api(`/${encodeURIComponent(db())}/raw/entities/lite?${qs}`);
+    explorerRows=d.rows||[]; explorerTotal=d.total||explorerRows.length;
+    updateExpCount(); renderVirtual();
+  }catch(e){rows.innerHTML=`<div class="empty">${esc(e.message)}</div>`;}
+}
+// Windowed renderer — only the visible slice (+buffer) is in the DOM.
+function renderVirtual(){
+  const cont=$("rows");
+  if(!explorerRows.length){cont.innerHTML='<div class="empty">No entities. Create one with + Entity, or Import.</div>';return;}
+  cont.innerHTML=`<div class="vsizer" style="height:${explorerRows.length*ROW_H}px"><div class="vwin"></div></div>`;
+  cont.onscroll=()=>requestAnimationFrame(drawWindow);
+  drawWindow();
+}
+function drawWindow(){
+  const cont=$("rows"); const win=cont.querySelector(".vwin"); if(!win)return;
+  const n=explorerRows.length;
+  const start=Math.max(0,Math.floor(cont.scrollTop/ROW_H)-6);
+  const end=Math.min(n,Math.ceil((cont.scrollTop+cont.clientHeight)/ROW_H)+6);
+  win.style.transform=`translateY(${start*ROW_H}px)`;
+  win.innerHTML=explorerRows.slice(start,end).map(e=>rowHtml(e,e.score)).join("");
+  win.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
 }
 
 function computeStats(total){
@@ -639,7 +670,6 @@ function computeStats(total){
   $("sRel").textContent=rel.toLocaleString();
   $("sW24").textContent=w24.toLocaleString();
   $("sVec").textContent=Math.round(vec/n*100)+"%";
-  explorerTotal=total; updateExpCount();
   $("dashCount").textContent=n.toLocaleString()+" loaded";
   $("mTypes").textContent=types;$("mTypesBar").style.width=Math.min(100,types*8)+"%";
   $("mStubs").textContent=stubs;$("mStubsBar").style.width=Math.min(100,stubs/n*100)+"%";
@@ -696,39 +726,28 @@ function svgGraph(nodes,edges,deg){
   return `<div class="graph"><svg width="100%" height="280" viewBox="0 0 360 260">${svg}</svg></div>`;
 }
 
-// ── Explorer ──
-function renderList(list){
-  const rows=$("rows");
-  if(!list.length){rows.innerHTML=`<div class="empty">No results.</div>`;$("moreBtn").style.display="none";return;}
-  rows.innerHTML=list.map(e=>rowHtml(e,e.score)).join("");
-  rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
-  $("moreBtn").style.display=nextCursor?"inline-block":"none";
-}
+// ── Explorer search (results feed the same virtual scroller) ──
 async function runSearch(){
   const q=$("search").value.trim();
+  if(!q && searchMode==="keyword"){ return loadExplorer(); }   // empty keyword = browse
   const status=$("fStatus").value, type=$("fType").value;
   const filters={}; if(status&&status!=="all")filters.status=status; if(type)filters.type=type;
+  explorerMode="search";
+  $("rows").innerHTML='<div class="empty">Searching…</div>';
   try{
     if(searchMode==="vector"){
       const model=$("vecModel").value;
       if(!q){toast("Enter a query for vector search","err");return;}
-      const d=await api(`/${encodeURIComponent(db())}/raw/vectors/search`,{method:"POST",body:{query:q,model,top_k:50,filters}});
-      $("expCount").textContent=`${d.results.length} by similarity`;
-      renderList(d.results); nextCursor=null;
-      if(!d.results.length) toast("No vectors for this model — run vectorization in Settings","err");
+      const d=await api(`/${encodeURIComponent(db())}/raw/vectors/search`,{method:"POST",body:{query:q,model,top_k:200,filters}});
+      explorerRows=d.results||[]; explorerTotal=explorerRows.length; updateExpCount(); renderVirtual();
+      if(!explorerRows.length) toast("No vectors for this model — run vectorization in Settings","err");
     }else{
-      const d=await api(`/${encodeURIComponent(db())}/raw/search`,{method:"POST",body:{query:q,modes:["keyword"],filters,limit:50}});
-      $("expCount").textContent=`${d.total_matched} matched · ${d.total_scanned} scanned`;
-      renderList(d.results); nextCursor=null;
+      const d=await api(`/${encodeURIComponent(db())}/raw/search`,{method:"POST",body:{query:q,modes:["keyword"],filters,limit:200}});
+      explorerRows=d.results||[]; explorerTotal=d.total_matched??explorerRows.length;
+      $("expCount").textContent=`${(d.total_matched||0).toLocaleString()} matched · ${(d.total_scanned||0).toLocaleString()} scanned`;
+      renderVirtual();
     }
-  }catch(e){toast(e.message,"err");}
-}
-async function loadMore(){
-  if(!nextCursor)return;
-  const status=$("fStatus").value;
-  const d=await api(`/${encodeURIComponent(db())}/raw/entities?limit=200&status=${status}&cursor=${encodeURIComponent(nextCursor)}`);
-  entities=entities.concat(d.entities||[]); nextCursor=d._cursor||null;
-  renderList(entities); updateExpCount();
+  }catch(e){toast(e.message,"err");$("rows").innerHTML=`<div class="empty">${esc(e.message)}</div>`;}
 }
 
 async function openEntity(id){
@@ -1108,12 +1127,12 @@ async function importSelected(){
 }
 
 // ── Wiring ──
-$("dbSel").addEventListener("change",()=>{loadEntities();ensureEvents();});
-$("reload").addEventListener("click",loadEntities);
+$("dbSel").addEventListener("change",()=>{explorerRows=[];explorerDb=null;loadEntities();ensureEvents();if(curView==="explorer")loadExplorer();});
+$("reload").addEventListener("click",()=>{loadEntities();if($("search").value.trim())runSearch();else loadExplorer();});
 $("search").addEventListener("keydown",e=>{if(e.key==="Enter")runSearch();});
+$("search").addEventListener("input",()=>{if(!$("search").value.trim()&&explorerMode==="search")loadExplorer();});
 $("fType").addEventListener("change",runSearch);
-$("fStatus").addEventListener("change",()=>{loadEntities();});
-$("moreBtn").addEventListener("click",loadMore);
+$("fStatus").addEventListener("change",()=>{loadEntities();if($("search").value.trim())runSearch();else loadExplorer();});
 $("modeSeg").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
   searchMode=b.dataset.mode;$("modeSeg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
   $("vecModel").style.display=searchMode==="vector"?"":"none";
