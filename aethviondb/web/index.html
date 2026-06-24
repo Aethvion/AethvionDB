@@ -517,7 +517,7 @@ const getKey=()=>localStorage.getItem("adb_key")||"";
 // ── API helper ──
 async function api(path,{method="GET",body,raw=false}={}){
   const t=performance.now();
-  const headers={"Content-Type":"application/json"};
+  const headers={"Content-Type":"application/json","X-Actor":"dashboard"};
   const k=getKey(); if(k) headers["X-API-Key"]=k;
   let r;
   try{ r=await fetch(API+path,{method,headers,body:body!==undefined?JSON.stringify(body):undefined}); }
@@ -551,6 +551,51 @@ function switchView(v){
 }
 document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
 
+// ── Live change feed (SSE) ──
+let evtSource=null, liveEvents=[], liveRefreshTimer=null, connectedDb=null;
+function ensureEvents(){ if(db()!==connectedDb){ connectedDb=db(); connectEvents(); } }
+function connectEvents(){
+  if(evtSource){evtSource.close();evtSource=null;}
+  liveEvents=[];
+  const d=db(); if(!d)return;
+  const k=getKey();
+  const url=`${API}/${encodeURIComponent(d)}/events`+(k?`?key=${encodeURIComponent(k)}`:"");
+  try{
+    evtSource=new EventSource(url);
+    evtSource.onmessage=e=>{try{onLiveEvent(JSON.parse(e.data));}catch{}};
+    evtSource.onopen=()=>setLive(true);
+    evtSource.onerror=()=>{/* EventSource auto-reconnects */};
+  }catch{}
+}
+function onLiveEvent(ev){
+  liveEvents.unshift(ev); if(liveEvents.length>120)liveEvents.pop();
+  flashLive();
+  renderLiveFeeds();
+  // Coalesce bursts, then refresh the live data views so stats/graph reflect it.
+  clearTimeout(liveRefreshTimer);
+  liveRefreshTimer=setTimeout(()=>{
+    if(curView==="dashboard") loadEntities();
+    else if(curView==="explorer" && !$("search").value.trim()) loadEntities();
+  },900);
+}
+function flashLive(){const d=$("liveDot"); if(!d)return; d.style.background="var(--cyan)"; d.style.boxShadow="0 0 10px var(--cyan)"; setTimeout(()=>{d.style.background="var(--green)";d.style.boxShadow="0 0 8px var(--green)";},400);}
+const ACT_ICON={created:"✦",updated:"✎",deleted:"🗑"};
+function evHtml(ev){
+  const c=(ev.entity_type&&TYPE_COLOR[ev.entity_type])?TYPE_COLOR[ev.entity_type]:ccol((Array.isArray(ev.kind)?ev.kind[0]:ev.kind)||ev.entity_type||"other");
+  const kind=(Array.isArray(ev.kind)?ev.kind[0]:ev.kind)||ev.entity_type||"";
+  return `<div class="ev" data-id="${esc(ev.id)}"><div class="ic" style="background:${c}1a;color:${c}">${ACT_ICON[ev.action]||"•"}</div>
+    <div><div class="t"><span class="who">${esc(ev.actor||"system")}</span> ${esc(ev.action)} <span class="ent">${esc(ev.name||ev.id)}</span></div>
+    <div class="ago">${relTime(ev.ts)} ago${kind?" · "+esc(kind):""}</div></div></div>`;
+}
+function renderLiveFeeds(){
+  if(!liveEvents.length)return;
+  for(const [tid,lim] of [["dashFeed",9],["actFeed",80]]){
+    const el=$(tid); if(!el)continue;
+    el.innerHTML=liveEvents.slice(0,lim).map(evHtml).join("");
+    el.querySelectorAll(".ev").forEach(r=>r.addEventListener("click",()=>r.dataset.id&&openEntity(r.dataset.id)));
+  }
+}
+
 // ── Databases ──
 async function loadDatabases(){
   const d=await api("/");
@@ -562,6 +607,7 @@ async function loadDatabases(){
   $("sDb").textContent=dbs.length;
   window._dbs=dbs;
   await loadEntities();
+  ensureEvents();
 }
 
 // ── Entities (sample load for dashboard + base explorer list) ──
@@ -603,7 +649,7 @@ function renderDashboard(){
   const byDeg=[...entities].sort((a,b)=>(((b.sections||{}).relations||[]).length)-(((a.sections||{}).relations||[]).length)).slice(0,30);
   rows.innerHTML=byDeg.length?byDeg.map(e=>rowHtml(e)).join(""):`<div class="empty">No entities yet.</div>`;
   rows.querySelectorAll(".row").forEach(r=>r.addEventListener("click",()=>openEntity(r.dataset.id)));
-  renderFeed($("dashFeed"),9);
+  if(liveEvents.length) renderLiveFeeds(); else renderFeed($("dashFeed"),9);
   renderMiniGraph($("dashGraph"));
 }
 function rowHtml(e,score){
@@ -848,7 +894,7 @@ async function startBake(){
 }
 
 // ── Activity ──
-function renderActivity(){renderFeed($("actFeed"),60);}
+function renderActivity(){if(liveEvents.length)renderLiveFeeds();else renderFeed($("actFeed"),60);}
 
 // ── Settings ──
 async function loadSettings(){
@@ -1055,7 +1101,7 @@ async function importSelected(){
 }
 
 // ── Wiring ──
-$("dbSel").addEventListener("change",()=>loadEntities());
+$("dbSel").addEventListener("change",()=>{loadEntities();ensureEvents();});
 $("reload").addEventListener("click",loadEntities);
 $("search").addEventListener("keydown",e=>{if(e.key==="Enter")runSearch();});
 $("fType").addEventListener("change",runSearch);

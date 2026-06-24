@@ -13,14 +13,16 @@ Timing is started at the top of each handler with time.perf_counter().
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from aethviondb._utils import get_logger
@@ -61,6 +63,30 @@ def _ensure(db: str) -> None:
     root = _root(db)
     (root / "entities").mkdir(parents=True, exist_ok=True)
     (root / "chunks").mkdir(parents=True, exist_ok=True)
+
+
+def _emit(db: str, action: str, entity: dict, actor: Optional[str]) -> None:
+    """Publish a change event to the live feed. Best-effort; never raises.
+
+    *actor* is who made the change — the X-Actor header an agent sends, falling
+    back to the entity's source.
+    """
+    try:
+        from aethviondb import events
+        events.publish(db, {
+            "action":      action,                       # created | updated | deleted
+            "db":          db,
+            "id":          entity.get("id"),
+            "name":        entity.get("name"),
+            "entity_type": entity.get("type"),
+            "kind":        entity.get("kind"),
+            "status":      entity.get("status"),
+            "version":     entity.get("version"),
+            "actor":       actor or entity.get("source") or "api",
+            "ts":          datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+    except Exception:
+        pass
 
 
 # Keyword + filter helpers
@@ -363,6 +389,7 @@ async def upsert_entity(
     req: UpsertRequest,
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
+    x_actor:          Optional[str] = Header(None),
 ):
     t = time.perf_counter()
     root = _root(db)
@@ -426,6 +453,7 @@ async def upsert_entity(
 
         action = "created"
 
+    _emit(db, action, entity, x_actor)
     return envelope({"entity": entity, "action": action}, db=db, took_start=t)
 
 
@@ -479,6 +507,7 @@ async def patch_entity(
     req:       PatchRequest,
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
+    x_actor:          Optional[str] = Header(None),
     if_match:         Optional[str] = Header(None),
 ):
     from aethviondb.entity_writer import VersionConflictError
@@ -507,6 +536,7 @@ async def patch_entity(
                 "current_version": e.actual,
             },
         )
+    _emit(db, "updated", entity, x_actor)
     return envelope({"entity": entity, "action": "patched"}, db=db, took_start=t)
 
 
@@ -517,13 +547,16 @@ async def delete_entity(
     hard:      bool = Query(False),
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
+    x_actor:          Optional[str] = Header(None),
 ):
     t = time.perf_counter()
     check_auth(_root(db), authorization, x_aethviondb_key)
     w = _writer(db)
-    if not w.exists(entity_id):
+    existing = w.get(entity_id)
+    if not existing:
         raise HTTPException(404, f"Entity '{entity_id}' not found.")
     w.delete(entity_id, soft=not hard)
+    _emit(db, "deleted", existing, x_actor)
     return envelope(
         {"entity_id": entity_id, "mode": "hard" if hard else "soft"},
         db=db, took_start=t,
@@ -536,6 +569,7 @@ async def batch_operations(
     req: BatchRequest,
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
+    x_actor:          Optional[str] = Header(None),
 ):
     t = time.perf_counter()
     root = _root(db)
@@ -557,6 +591,7 @@ async def batch_operations(
                 if existing:
                     entity = w.update(existing["id"], data)
                     results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "updated"})
+                    _emit(db, "updated", entity, x_actor)
                 else:
                     entity, _ = w.create(
                         name=name,
@@ -568,14 +603,17 @@ async def batch_operations(
                         }},
                     )
                     results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "created"})
+                    _emit(db, "created", entity, x_actor)
 
             elif op.op == "delete":
                 if not op.id:
                     raise ValueError("delete requires 'id'")
-                if not w.exists(op.id):
+                existing = w.get(op.id)
+                if not existing:
                     raise ValueError(f"Entity '{op.id}' not found")
                 w.delete(op.id, soft=not op.hard)
                 results.append({"index": i, "op": "delete", "id": op.id})
+                _emit(db, "deleted", existing, x_actor)
 
             elif op.op == "patch":
                 if not op.id:
@@ -584,6 +622,7 @@ async def batch_operations(
                     raise ValueError(f"Entity '{op.id}' not found")
                 entity = w.update(op.id, op.mutations or {})
                 results.append({"index": i, "op": "patch", "id": entity["id"]})
+                _emit(db, "updated", entity, x_actor)
 
             else:
                 raise ValueError(f"Unknown op {op.op!r}. Valid: upsert, delete, patch")
@@ -935,6 +974,51 @@ async def download_snapshot(
         path,
         media_type="application/json",
         filename=f"{db}.snapshot",
+    )
+
+
+# Live change feed (Server-Sent Events) — lets agents and the dashboard see
+# every write the moment it happens.
+
+@router.get("/{db}/events")
+async def events_stream(
+    db:      str,
+    request: Request,
+    key:     Optional[str] = Query(None, description="API key (EventSource can't send headers)"),
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Stream change events for this database as Server-Sent Events.
+
+    Each event is one JSON line: action, id, name, type, version, actor, ts.
+    The browser EventSource API can't set headers, so a key may be passed as a
+    ``?key=`` query parameter for protected databases.
+    """
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key or key)
+
+    from aethviondb import events
+    queue, unsubscribe = events.subscribe(db)
+
+    async def stream():
+        try:
+            # Open the stream and tell the client how often we heartbeat.
+            yield "retry: 3000\n: connected\n\n"
+            while True:
+                try:
+                    ev = await asyncio.wait_for(queue.get(), timeout=20.0)
+                    yield f"data: {json.dumps(ev)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": ping\n\n"          # heartbeat keeps proxies/clients alive
+                if await request.is_disconnected():
+                    break
+        finally:
+            unsubscribe()
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
 
 
