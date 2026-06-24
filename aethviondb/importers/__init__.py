@@ -7,9 +7,14 @@ the Layer-1 core changes.
 """
 from .base import BaseImporter, ImportSummary, bulk_write
 from .sqlite import SQLiteImporter
+from .snapshot import SnapshotImporter
 
 IMPORTERS = {
-    "sqlite": SQLiteImporter,
+    "sqlite":   SQLiteImporter,
+    "snapshot": SnapshotImporter,
 }
 
-__all__ = ["BaseImporter", "ImportSummary", "SQLiteImporter", "IMPORTERS", "bulk_write"]
+__all__ = [
+    "BaseImporter", "ImportSummary", "SQLiteImporter", "SnapshotImporter",
+    "IMPORTERS", "bulk_write",
+]

@@ -110,6 +110,21 @@ class NameIndex:
             self._save()
         logger.debug(f"[NameIndex] registered {name!r} → {entity_id}")
 
+    def register_many(self, mapping: dict[str, str]) -> int:
+        """Register many name→ID pairs with a single save. Returns the count added.
+
+        Far cheaper than calling register() in a loop (which saves per call) —
+        the right path for bulk imports.
+        """
+        self._ensure_loaded()
+        with self._lock:
+            for name, entity_id in mapping.items():
+                key = _normalize(name)
+                if key:
+                    self._data[key] = entity_id
+            self._save()
+        return len(mapping)
+
     def register_aliases(self, entity_id: str, aliases: list[str]) -> None:
         """Register multiple alias names for the same entity ID."""
         self._ensure_loaded()

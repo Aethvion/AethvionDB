@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from aethviondb._utils import get_logger
@@ -45,7 +46,9 @@ def _root(db: str) -> Path:
 def _writer(db: str):
     from aethviondb.entity_writer import EntityWriter
     root = _root(db)
-    return EntityWriter(entities_dir=root / "entities")
+    # Use the per-database name index — NOT the module singleton, which points at
+    # the default database and would break dedup / get_by_name for every other db.
+    return EntityWriter(entities_dir=root / "entities", index=_index(db))
 
 
 def _index(db: str):
@@ -903,6 +906,36 @@ async def cancel_vectorize_endpoint(
     check_auth(root, authorization, x_aethviondb_key)
     from aethviondb.vectorizer import cancel_vectorize
     return envelope(cancel_vectorize(root), db=db, took_start=t)
+
+
+# Snapshot export (round-trips with the .snapshot importer)
+
+@router.get("/{db}/raw/snapshot/download")
+async def download_snapshot(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Export the database as a portable AethvionDB ``.snapshot`` file — a JSON
+    array of every entity, importable via the snapshot importer."""
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb import snapshot as snap
+
+    w = _writer(db)
+    # Build a fresh snapshot at the current generation so the download is current
+    # (includes deleted entities for a faithful, complete round-trip).
+    entities = await asyncio.to_thread(lambda: w.list_all(include_deleted=True))
+    await asyncio.to_thread(snap.build, root, entities)
+
+    path = snap.snapshot_path(root)
+    if not path.exists():
+        raise HTTPException(404, "Snapshot could not be built.")
+    return FileResponse(
+        path,
+        media_type="application/json",
+        filename=f"{db}.snapshot",
+    )
 
 
 # Graph
