@@ -63,12 +63,13 @@ Every entity shares one envelope:
 
 ```jsonc
 {
+  "schema_version": 1,       // on-disk format version (migrated forward across releases)
   "id": "ws_<hex>",          // stable, content-independent ID
   "type": "person|place|module|service|decision|goal|...",
   "kind": "software.module", // optional fine-grained sub-type
   "name": "Canonical Name",  // aliases live in core.aliases; deduped by name
   "status": "active|stub|deleted|planned|deprecated|experimental",
-  "version": 1,              // incremented on every write
+  "version": 1,              // mutation counter — incremented on every write
   "created": "ISO-8601",
   "updated": "ISO-8601",
   "source": "manual|import|expansion|distilled",
@@ -86,6 +87,10 @@ A global **name index** is consulted before any entity is created, so the same
 real-world thing never gets two records. Relationships are first-class and
 typed (`depends_on`, `parent_of`, `calls`, `created_by`, `related_to`, …),
 making the store a true knowledge graph.
+
+The on-disk format is versioned (`schema_version`) and migrated forward across
+releases — see [docs/STORAGE_FORMAT.md](docs/STORAGE_FORMAT.md) for the full
+layout and stability policy.
 
 ---
 

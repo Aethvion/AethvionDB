@@ -49,6 +49,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+# On-disk format version for a single entity record. Distinct from the per-entity
+# ``version`` field, which counts mutations. ``schema_version`` identifies the
+# *shape* of the stored JSON so the engine can migrate older records forward.
+#
+# Stability policy (from v1.0.0): the storage format is committed. Any change
+# that alters the on-disk shape bumps SCHEMA_VERSION and adds a forward step in
+# migrate(); the engine reads every prior version. See docs/STORAGE_FORMAT.md.
+SCHEMA_VERSION = 1
+
+
 VALID_STATUSES = {
     # Core lifecycle
     "active", "stub", "deleted",
@@ -137,6 +147,7 @@ def make_empty(
     """
     now = _now_iso()
     entity: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
         "id":      entity_id or _new_id(),
         "type":    entity_type if entity_type in VALID_TYPES else "other",
         "name":    name,
@@ -165,6 +176,30 @@ def make_empty(
     return entity
 
 
+def migrate(entity: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Upgrade an entity dict to the current SCHEMA_VERSION, in place.
+
+    Returns ``(entity, changed)``. Records written before schema versioning have
+    no ``schema_version`` field; they are structurally identical to v1, so they
+    are simply stamped as v1. Future format changes add steps here::
+
+        while v < SCHEMA_VERSION:
+            ...transform for v -> v+1...
+            v += 1; changed = True
+
+    The engine always reads every prior version; this is the one place that
+    knows how to move them forward.
+    """
+    changed = False
+    v = entity.get("schema_version")
+    if not isinstance(v, int):
+        entity["schema_version"] = 1
+        v = 1
+        changed = True
+    # (no migration steps yet — v1 is the baseline)
+    return entity, changed
+
+
 def validate(entity: dict[str, Any]) -> list[str]:
     """
     Structural validation only (schema shape, required keys, enum values).
@@ -176,6 +211,13 @@ def validate(entity: dict[str, Any]) -> list[str]:
     for key in ("id", "type", "name", "status", "version", "created", "updated", "source", "sections"):
         if key not in entity:
             errors.append(f"Missing required key: {key!r}")
+
+    if "schema_version" in entity:
+        sv = entity["schema_version"]
+        if not isinstance(sv, int):
+            errors.append("'schema_version' must be an integer")
+        elif sv > SCHEMA_VERSION:
+            errors.append(f"schema_version {sv} is newer than this engine supports ({SCHEMA_VERSION})")
 
     if "status" in entity and entity["status"] not in VALID_STATUSES:
         errors.append(f"Invalid status {entity['status']!r}; must be one of {VALID_STATUSES}")

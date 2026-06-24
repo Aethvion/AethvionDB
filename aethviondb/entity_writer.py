@@ -29,7 +29,7 @@ from aethviondb._utils import get_logger, atomic_json_write
 from aethviondb.config import AETHVIONDB
 
 _DEFAULT_ENTITIES_DIR = AETHVIONDB / "default" / "entities"
-from .entity_schema import make_empty, validate, _new_id, _now_iso, VALID_STATUSES
+from .entity_schema import make_empty, validate, _new_id, _now_iso, VALID_STATUSES, SCHEMA_VERSION
 from .name_index import NameIndex, get_index
 from . import snapshot as _snapshot
 
@@ -107,6 +107,10 @@ class EntityWriter:
     # Atomic write
 
     def _write(self, entity: dict[str, Any]) -> None:
+        # Stamp the on-disk format version here, the single chokepoint every
+        # persisted entity passes through — so legacy records are upgraded the
+        # next time they're written, and new ones always carry it.
+        entity.setdefault("schema_version", SCHEMA_VERSION)
         atomic_json_write(self._path_for(entity["id"]), entity)
         # Patch the in-memory cache in place and bump the generation — O(1),
         # so a single write never triggers a full N-file snapshot rebuild.

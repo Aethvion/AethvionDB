@@ -16,6 +16,7 @@ Public surface
 
 from .name_index import NameIndex
 from .entity_writer import EntityWriter, VersionConflictError
+from .entity_schema import SCHEMA_VERSION, migrate
 from .validator import Validator
 from .distiller import ContentDistiller
 
@@ -24,6 +25,8 @@ __all__ = [
     "NameIndex",
     "EntityWriter",
     "VersionConflictError",
+    "SCHEMA_VERSION",
+    "migrate",
     "Validator",
     "ContentDistiller",
     "__version__",
