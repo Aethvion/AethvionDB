@@ -1,0 +1,13 @@
+[project]
+name = "aethviondb-mcp"
+version = "0.1.0"
+description = "Layer 2 MCP Server for AethvionDB"
+authors = [{ name = "Aethvion" }]
+dependencies = [
+    "mcp>=0.1.0",
+    "httpx>=0.24.0",
+]
+requires-python = ">=3.10"
+
+[project.scripts]
+aethviondb-mcp = "mcp_server:main"
