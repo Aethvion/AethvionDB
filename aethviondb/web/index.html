@@ -139,6 +139,25 @@
   @keyframes slidein{from{opacity:0;transform:translateX(12px)}}
   ::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:#1d2a44;border-radius:6px}
   code.k{background:#0c1422;border:1px solid var(--line2);border-radius:5px;padding:1px 5px;font-size:11.5px;color:var(--cyan)}
+  /* Settings: categorized list */
+  .setwrap{display:grid;grid-template-columns:210px 1fr;flex:1;min-height:0}
+  .setnav{border-right:1px solid var(--line);padding:12px 10px;display:flex;flex-direction:column;gap:3px;overflow:auto}
+  .setcat{padding:9px 12px;border-radius:9px;cursor:pointer;color:var(--muted);font-size:13px;border:1px solid transparent;white-space:nowrap}
+  .setcat:hover{background:#ffffff06;color:var(--text)}
+  .setcat.active{background:#22d3ee14;color:var(--cyan);border-color:#22d3ee33}
+  .setpane{overflow:auto;min-height:0;padding:20px 24px;max-width:840px}
+  .setsec{display:none}
+  .setsec.active{display:block}
+  .setsec h3{font-size:15px;margin:0 0 4px;font-weight:700}
+  .setsec .desc{color:var(--muted);font-size:12.5px;margin-bottom:14px;line-height:1.5}
+  .setrow{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .setrow:last-child{border-bottom:0}
+  .setrow .lhs{min-width:0}
+  .setrow .lhs .t{font-size:13.5px;font-weight:600}
+  .setrow .lhs .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .setrow .rhs{flex:none;display:flex;gap:8px;align-items:center}
+  .setrow .rhs input:not([type=checkbox]),.setrow .rhs select{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;min-width:240px;color:var(--text)}
+  .setrow .rhs input[type=checkbox]{width:17px;height:17px;accent-color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -285,65 +304,73 @@
 
       <!-- ───────── SETTINGS ───────── -->
       <div class="view" id="v-settings">
-        <div class="panel">
-          <div class="ph"><i>✦</i> Capabilities <span class="tag">what's enabled on this server</span>
-            <button class="btn sm" id="capRefresh" style="margin-left:8px">↻</button></div>
-          <div class="pbody"><div id="capRows"><div class="empty">Loading…</div></div></div>
-        </div>
-        <div class="grid2" style="align-items:start">
-          <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
-            <div class="panel">
-              <div class="ph"><i>🔌</i> Providers &amp; embedding</div>
-              <div class="pbody">
-                <div class="hint" style="margin-bottom:10px">Keys are stored on this host in <code class="k">settings.json</code> and masked when read back. They enable API-based embeddings without a restart.</div>
-                <div class="field"><label>OpenAI API key <span id="oaiState" style="color:var(--dim)"></span></label>
-                  <input id="oaiKey" type="password" placeholder="sk-… (leave blank to keep current)" autocomplete="off"></div>
-                <div class="field"><label>Google API key <span id="ggState" style="color:var(--dim)"></span></label>
-                  <input id="ggKey" type="password" placeholder="AIza… (leave blank to keep current)" autocomplete="off"></div>
-                <div class="field"><label>Default embedding model</label><select id="defModel"></select></div>
-                <button class="btn cyan" id="provSave">Save settings</button>
-              </div>
+        <div class="panel" style="flex:1">
+          <div class="ph"><i>⚙</i> Settings</div>
+          <div class="setwrap">
+            <div class="setnav">
+              <div class="setcat active" data-cat="providers">🔌 Providers &amp; embedding</div>
+              <div class="setcat" data-cat="vectorize">✦ Vectorization</div>
+              <div class="setcat" data-cat="databases">▦ Databases</div>
+              <div class="setcat" data-cat="keys">🔑 API access</div>
+              <div class="setcat" data-cat="capabilities">◈ Capabilities</div>
             </div>
-            <div class="panel">
-              <div class="ph"><i>▦</i> Databases</div>
-              <div class="pbody">
+            <div class="setpane">
+
+              <!-- Providers -->
+              <div class="setsec active" data-cat="providers">
+                <h3>Providers &amp; embedding</h3>
+                <div class="desc">Stored on this host in <code class="k">settings.json</code>, masked when read back. Enables API-based embeddings without a restart.</div>
+                <div class="setrow"><div class="lhs"><div class="t">OpenAI API key</div><div class="s" id="oaiState">not set</div></div>
+                  <div class="rhs"><input id="oaiKey" type="password" placeholder="sk-… (blank = keep)" autocomplete="off"></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Google API key</div><div class="s" id="ggState">not set</div></div>
+                  <div class="rhs"><input id="ggKey" type="password" placeholder="AIza… (blank = keep)" autocomplete="off"></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Default embedding model</div><div class="s">Used as the default for vectorization</div></div>
+                  <div class="rhs"><select id="defModel"></select></div></div>
+                <div class="setrow"><div class="lhs"></div><div class="rhs"><button class="btn cyan" id="provSave">Save settings</button></div></div>
+              </div>
+
+              <!-- Vectorization -->
+              <div class="setsec" data-cat="vectorize">
+                <h3>Vectorization <span style="font-size:11px;color:var(--dim);font-weight:400">· optional</span></h3>
+                <div class="desc">Generate embeddings for every entity and store them on the raw record (<code class="k">sections.vectors</code>). The core works fully without this.</div>
+                <div class="setrow"><div class="lhs"><div class="t">Embedding model</div><div class="s" id="vModelHint"></div></div>
+                  <div class="rhs"><select id="vModel"></select></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Include stubs</div><div class="s">Also embed stub entities</div></div>
+                  <div class="rhs"><input type="checkbox" id="vStubs" checked style="width:auto"></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Re-embed existing</div><div class="s">Overwrite vectors that already exist for this model</div></div>
+                  <div class="rhs"><input type="checkbox" id="vForce" style="width:auto"></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Run</div><div class="s">Embeds in the background; progress below</div></div>
+                  <div class="rhs"><button class="btn cyan" id="vStart">Start</button><button class="btn danger" id="vCancel" disabled>Cancel</button></div></div>
+                <div id="vStatus" style="margin-top:14px;font-size:12.5px"></div>
+              </div>
+
+              <!-- Databases -->
+              <div class="setsec" data-cat="databases">
+                <h3>Databases</h3>
+                <div class="desc">Each database is an independent directory. A new one becomes real on its first write or import.</div>
                 <table class="tbl"><thead><tr><th>Name</th><th>Entities</th><th></th></tr></thead><tbody id="dbRows"></tbody></table>
-                <div class="exp-ctl" style="padding:10px 0 0">
-                  <input class="grow" id="newDbName" placeholder="new-database-name">
-                  <button class="btn" id="newDbBtn">Create</button>
-                </div>
-                <div class="hint">A database becomes real on its first write or import.</div>
+                <div class="setrow" style="border-top:1px solid var(--line);margin-top:6px"><div class="lhs"><div class="t">Create database</div><div class="s">Switches to it; persisted on first write/import</div></div>
+                  <div class="rhs"><input id="newDbName" placeholder="new-database-name"><button class="btn" id="newDbBtn">Create</button></div></div>
               </div>
-            </div>
-            <div class="panel">
-              <div class="ph"><i>🔑</i> API keys <span class="tag" id="keyMode">—</span></div>
-              <div class="pbody">
-                <div class="field"><label>Active key (sent as X-API-Key)</label>
-                  <input id="activeKey" placeholder="none — open access" autocomplete="off"></div>
-                <div class="hint" style="margin-bottom:8px">Stored locally in this browser only.</div>
-                <table class="tbl"><thead><tr><th>Label</th><th>Scopes</th><th></th></tr></thead><tbody id="keyRows"></tbody></table>
-                <div class="exp-ctl" style="padding:10px 0 0">
-                  <input class="grow" id="newKeyLabel" placeholder="key label (e.g. coding-agent)">
-                  <button class="btn" id="newKeyBtn">Generate</button>
-                </div>
+
+              <!-- API access -->
+              <div class="setsec" data-cat="keys">
+                <h3>API access <span class="tag" id="keyMode" style="font-size:11px;color:var(--muted);font-weight:400"></span></h3>
+                <div class="desc">Per-database API keys protect write access. The active key is sent as <code class="k">X-API-Key</code> from this browser.</div>
+                <div class="setrow"><div class="lhs"><div class="t">Active key (this browser)</div><div class="s">Stored locally only — not on the server</div></div>
+                  <div class="rhs"><input id="activeKey" placeholder="none — open access" autocomplete="off"></div></div>
+                <table class="tbl" style="margin-top:6px"><thead><tr><th>Label</th><th>Scopes</th><th></th></tr></thead><tbody id="keyRows"></tbody></table>
+                <div class="setrow" style="border-top:1px solid var(--line);margin-top:6px"><div class="lhs"><div class="t">Generate key</div><div class="s">Shown once — copied to the active key</div></div>
+                  <div class="rhs"><input id="newKeyLabel" placeholder="label (e.g. coding-agent)"><button class="btn" id="newKeyBtn">Generate</button></div></div>
               </div>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="ph"><i>✦</i> Vectorization <span class="tag">optional · embeddings</span></div>
-            <div class="pbody">
-              <div class="hint" style="margin-bottom:10px">Generate embeddings for every entity and store them on the raw record (<code class="k">sections.vectors</code>). The core works fully without this.</div>
-              <div class="field"><label>Embedding model</label><select id="vModel"></select>
-                <div class="hint" id="vModelHint"></div></div>
-              <div class="row2">
-                <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="vStubs" checked style="width:auto"> include stubs</label>
-                <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="vForce" style="width:auto"> re-embed existing</label>
+
+              <!-- Capabilities -->
+              <div class="setsec" data-cat="capabilities">
+                <h3>Capabilities <button class="btn sm" id="capRefresh" style="margin-left:6px;vertical-align:middle">↻</button></h3>
+                <div class="desc">What's installed and configured on this server, and how to enable the rest.</div>
+                <div id="capRows"><div class="empty">Loading…</div></div>
               </div>
-              <div style="display:flex;gap:8px;margin-top:8px">
-                <button class="btn cyan" id="vStart">Start vectorizing</button>
-                <button class="btn danger" id="vCancel" disabled>Cancel</button>
-              </div>
-              <div id="vStatus" style="margin-top:14px;font-size:12.5px"></div>
+
             </div>
           </div>
         </div>
@@ -791,6 +818,9 @@ async function loadSettings(){
   $("defModel").innerHTML=vm.innerHTML;
   await loadCapabilities();
   await loadProviderSettings();
+  // The configured default model drives the vectorization default.
+  if($("defModel").value) vm.value=$("defModel").value;
+  else{const local=vecModels.find(m=>m.provider==="local"); if(local)vm.value=local.model;}
   updateVModelHint();
   pollVecStatus();
 }
@@ -932,6 +962,11 @@ $("vStart").addEventListener("click",startVec);
 $("vCancel").addEventListener("click",cancelVec);
 $("capRefresh").addEventListener("click",loadCapabilities);
 $("provSave").addEventListener("click",saveProviders);
+document.querySelectorAll(".setcat").forEach(c=>c.addEventListener("click",()=>{
+  const cat=c.dataset.cat;
+  document.querySelectorAll(".setcat").forEach(x=>x.classList.toggle("active",x===c));
+  document.querySelectorAll(".setsec").forEach(s=>s.classList.toggle("active",s.dataset.cat===cat));
+}));
 
 loadDatabases().catch(e=>{$("dashRows").innerHTML=`<div class="empty">Failed to load: ${esc(e.message)}</div>`;setLive(false);});
 </script>
