@@ -33,6 +33,7 @@ _SUMMARY_COLS = ("description", "summary", "notes", "body", "content", "comment"
 
 class SQLiteImporter(BaseImporter):
     source_type = "sqlite"
+    extensions = (".db", ".sqlite", ".sqlite3", ".db3")
 
     def __init__(self, source: str):
         super().__init__(source)

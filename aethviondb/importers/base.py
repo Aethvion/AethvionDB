@@ -92,6 +92,8 @@ class BaseImporter(ABC):
     """One adapter per source type. Subclasses implement preview + iter_entities."""
 
     source_type: str = "base"
+    # File extensions this adapter recognises, used when scanning a folder.
+    extensions: tuple[str, ...] = ()
 
     def __init__(self, source: str):
         self.source = source

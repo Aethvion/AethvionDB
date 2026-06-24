@@ -170,6 +170,21 @@
   dialog .dstack .s{font-size:11px;color:var(--muted);margin:-3px 0 6px}
   dialog .dstack input,dialog .dstack textarea,dialog .dstack select{width:100%}
   dialog .drows{margin:4px 0 6px}
+  /* Restore form-control styling inside dialogs (rows/stacks) */
+  dialog input:not([type=checkbox]),dialog select,dialog textarea{
+    background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;color:var(--text);font:inherit}
+  dialog input:not([type=checkbox]):focus,dialog select:focus,dialog textarea:focus{border-color:var(--cyan)}
+  /* Import scan results */
+  .implist{max-height:210px;overflow:auto;margin:6px 0;border:1px solid var(--line);border-radius:9px}
+  .implisthead{display:flex;align-items:center;font-size:11.5px;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--line)}
+  .improw{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid #ffffff07;cursor:pointer;font-size:12.5px}
+  .improw:last-child{border-bottom:0}
+  .improw:hover{background:#ffffff06}
+  .improw.bad{opacity:.55;cursor:default}
+  .improw .ir-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .improw .ir-size{color:var(--muted);font-size:11.5px;font-variant-numeric:tabular-nums}
+  .improw .ir-bad{color:var(--red);font-size:10px;border:1px solid #f8717144;border-radius:5px;padding:0 5px}
+  .improw input[type=checkbox],.implisthead input[type=checkbox]{width:16px;height:16px;accent-color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -424,21 +439,25 @@
 </div></dialog>
 
 <dialog id="impDlg"><div class="dlg">
-  <h3>Import database</h3>
-  <div class="hint" style="margin-bottom:4px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
+  <h3>Import databases</h3>
+  <div class="hint" style="margin-bottom:4px">Pick a folder; it's scanned recursively for matching files. Select which to import — each becomes entities (tables → kinds, rows → entities, foreign keys → relations).</div>
   <div class="drows">
     <div class="drow"><div class="lhs"><div class="t">Source type</div></div>
-      <div class="rhs"><select id="impType"><option value="sqlite">SQLite (.db / .sqlite)</option></select></div></div>
-    <div class="dstack"><div class="t">Source file path</div><div class="s">Path on this machine</div>
-      <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\sample.db" autocomplete="off"></div>
-    <div class="drow" style="border-bottom:0"><div class="lhs"><div class="t">Target database</div><div class="s">Created if it doesn't exist</div></div>
-      <div class="rhs"><input id="impDb" placeholder="chinook" autocomplete="off"></div></div>
+      <div class="rhs"><select id="impType"><option value="sqlite">SQLite (.db / .sqlite / .sqlite3)</option></select></div></div>
+    <div class="dstack" style="border-bottom:0"><div class="t">Folder to scan</div><div class="s">Searched recursively, including sub-folders</div>
+      <div style="display:flex;gap:8px">
+        <input id="impFolder" placeholder="C:\path\to\databases" autocomplete="off" style="flex:1">
+        <button class="btn" type="button" id="impBrowse">Browse…</button>
+        <button class="btn cyan" type="button" id="impScan">Scan</button>
+      </div></div>
   </div>
+  <div id="impList" class="implist" style="display:none"></div>
+  <div class="drow"><div class="lhs"><div class="t">Target database</div><div class="s">All selected files import here · created if new</div></div>
+    <div class="rhs"><input id="impDb" placeholder="chinook" autocomplete="off"></div></div>
   <div class="out" id="impOut"></div>
   <div class="actions">
     <button class="btn" type="button" id="impClose">Close</button>
-    <button class="btn" type="button" id="impPrev">Preview</button>
-    <button class="btn cyan" type="button" id="impRun">Import</button>
+    <button class="btn cyan" type="button" id="impRun">Import selected</button>
   </div>
 </div></dialog>
 
@@ -919,28 +938,59 @@ async function startVec(){
 }
 async function cancelVec(){try{await api(`/${encodeURIComponent(db())}/raw/vectorize/cancel`,{method:"POST"});toast("Cancelled","ok");pollVecStatus();}catch(e){toast(e.message,"err");}}
 
-// ── Import ──
-function impBody(){return{source_type:$("impType").value,source:$("impPath").value.trim(),db:$("impDb").value.trim()};}
+// ── Import (folder scan + multi-select) ──
+let scannedFiles=[];
 async function impPost(path,body){
-  const r=await fetch("/api/import"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const r=await fetch("/api/import"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:body!==undefined?JSON.stringify(body):undefined});
   const txt=await r.text();let j={};try{j=JSON.parse(txt);}catch{}
   if(!r.ok)throw new Error((j.detail&&(j.detail.message||j.detail))||txt||("HTTP "+r.status));return j;}
-async function importPreview(){
-  const out=$("impOut");out.style.display="block";out.innerHTML="Reading source…";
-  const b=impBody();if(!b.source){out.innerHTML="<span style='color:var(--pink)'>Enter a source file path.</span>";return;}
-  try{const j=await impPost("/preview",b);
-    out.innerHTML=`<div style="color:var(--cyan);margin-bottom:6px">${j.est_entities} entities · ${j.est_relations} relations · ${j.tables.length} tables</div>`+
-      j.tables.map(t=>`<div style="padding:2px 0"><b>${esc(t.name)}</b> <span style="color:var(--muted)">· ${t.rows} rows</span>${t.foreign_keys.length?` <span style="color:var(--violet)">· ${t.foreign_keys.map(esc).join(", ")}</span>`:""}</div>`).join("");
-  }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
+async function importBrowse(){
+  try{const j=await impPost("/pick-folder");
+    if(j.folder){$("impFolder").value=j.folder;await importScan();}}
+  catch(e){toast(e.message+" — type the path instead","err");}
 }
-async function importRun(){
-  const out=$("impOut");out.style.display="block";out.innerHTML="Importing…";
-  const b=impBody();if(!b.source||!b.db){out.innerHTML="<span style='color:var(--pink)'>Source path and target name are required.</span>";return;}
-  try{const j=await impPost("/run",b);
-    out.innerHTML=`<span style="color:var(--green)">Imported ${j.entities} entities, ${j.relations} relations in ${j.elapsed_s}s into "${esc(j.db)}".</span>`;
-    await loadDatabases();const sel=$("dbSel");if([...sel.options].some(o=>o.value===b.db)){sel.value=b.db;await loadEntities();}
-    toast("Import complete","ok");
-  }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
+function slugDb(folder){
+  const base=folder.replace(/[\\\/]+$/,"").split(/[\\\/]/).pop()||"imported";
+  return base.toLowerCase().replace(/[^a-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,64)||"imported";
+}
+async function importScan(){
+  const folder=$("impFolder").value.trim();
+  const list=$("impList");list.style.display="block";
+  if(!folder){toast("Pick or enter a folder first","err");return;}
+  list.innerHTML='<div class="hint" style="padding:12px">Scanning…</div>';
+  try{
+    const j=await impPost("/scan",{source_type:$("impType").value,folder});
+    scannedFiles=j.files;
+    if(!j.count){list.innerHTML='<div class="empty" style="padding:16px">No matching files in this folder or its sub-folders.</div>';return;}
+    if(!$("impDb").value)$("impDb").value=slugDb(folder);
+    list.innerHTML=`<div class="implisthead"><span>${j.valid_count} of ${j.count} importable</span>
+        <label style="margin-left:auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="impAll" checked> select all</label></div>`+
+      j.files.map((f,i)=>`<label class="improw ${f.valid?'':'bad'}">
+        <input type="checkbox" class="impchk" data-i="${i}" ${f.valid?'checked':'disabled'}>
+        <span class="ir-name" title="${esc(f.path)}">${esc(f.rel)}</span>
+        <span class="ir-size">${esc(f.size_fmt)}</span>
+        ${f.valid?'':'<span class="ir-bad">invalid</span>'}</label>`).join("");
+    const all=$("impAll");
+    if(all)all.addEventListener("change",()=>list.querySelectorAll(".impchk:not(:disabled)").forEach(c=>c.checked=all.checked));
+  }catch(e){list.innerHTML=`<div class="empty" style="padding:16px;color:var(--pink)">${esc(e.message)}</div>`;}
+}
+async function importSelected(){
+  const target=$("impDb").value.trim();
+  const out=$("impOut");out.style.display="block";
+  if(!target){out.innerHTML="<span style='color:var(--pink)'>Enter a target database name.</span>";return;}
+  const picked=[...document.querySelectorAll(".impchk:checked")].map(c=>scannedFiles[+c.dataset.i]).filter(Boolean);
+  if(!picked.length){out.innerHTML="<span style='color:var(--pink)'>Select at least one file.</span>";return;}
+  let totE=0,totR=0,fails=[];
+  for(let i=0;i<picked.length;i++){
+    out.innerHTML=`Importing ${i+1}/${picked.length}: <b>${esc(picked[i].name)}</b>…`;
+    try{const j=await impPost("/run",{source_type:$("impType").value,source:picked[i].path,db:target});
+      totE+=j.entities||0;totR+=j.relations||0;}
+    catch(e){fails.push(picked[i].name);}
+  }
+  out.innerHTML=`<span style="color:var(--green)">Imported ${totE} entities, ${totR} relations from ${picked.length-fails.length} file(s) into "${esc(target)}".</span>`+
+    (fails.length?`<div style="color:var(--pink);margin-top:4px">Failed: ${fails.map(esc).join(", ")}</div>`:"");
+  await loadDatabases();const sel=$("dbSel");if([...sel.options].some(o=>o.value===target)){sel.value=target;await loadEntities();}
+  toast(`Imported ${picked.length-fails.length} file(s)`,"ok");
 }
 
 // ── Wiring ──
@@ -962,10 +1012,12 @@ $("nCancel").addEventListener("click",()=>$("newDlg").close());
 $("newForm").addEventListener("submit",ev=>{ev.preventDefault();if(ev.submitter&&ev.submitter.value==="cancel"){$("newDlg").close();return;}createEntity();});
 $("eCancel").addEventListener("click",()=>$("editDlg").close());
 $("eSave").addEventListener("click",saveEdit);
-$("impBtn").addEventListener("click",()=>{$("impOut").style.display="none";$("impDlg").showModal();});
+$("impBtn").addEventListener("click",()=>{$("impOut").style.display="none";$("impList").style.display="none";$("impDlg").showModal();});
 $("impClose").addEventListener("click",()=>$("impDlg").close());
-$("impPrev").addEventListener("click",importPreview);
-$("impRun").addEventListener("click",importRun);
+$("impBrowse").addEventListener("click",importBrowse);
+$("impScan").addEventListener("click",importScan);
+$("impFolder").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();importScan();}});
+$("impRun").addEventListener("click",importSelected);
 $("gRun").addEventListener("click",runTraverse);
 $("pRun").addEventListener("click",runPath);
 $("bakeRefresh").addEventListener("click",loadBakes);
