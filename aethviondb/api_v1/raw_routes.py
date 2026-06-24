@@ -1071,6 +1071,84 @@ async def events_stream(
     )
 
 
+# Backups — point-in-time copies of a database, with restore.
+
+class BackupCreate(BaseModel):
+    label: str = ""
+
+
+@router.get("/{db}/backups")
+async def list_backups_endpoint(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """List point-in-time backups of this database, newest first."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb.backup import list_backups
+    backups = await asyncio.to_thread(list_backups, root)
+    return envelope({"backups": backups, "total": len(backups)}, db=db, took_start=t)
+
+
+@router.post("/{db}/backups")
+async def create_backup_endpoint(
+    db:  str,
+    req: BackupCreate,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Create a point-in-time backup (copies entities + name index)."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    _ensure(db)
+    from aethviondb.backup import create_backup
+    try:
+        meta = await asyncio.to_thread(create_backup, root, db, req.label)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    return envelope(meta, db=db, took_start=t)
+
+
+@router.post("/{db}/backups/{backup_id}/restore")
+async def restore_backup_endpoint(
+    db:        str,
+    backup_id: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Restore a backup, replacing the current database contents. The in-memory
+    and on-disk caches are invalidated so the next read reflects the restore."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb.backup import restore_backup
+    try:
+        report = await asyncio.to_thread(restore_backup, root, backup_id)
+    except RuntimeError as e:
+        raise HTTPException(404, str(e))
+    return envelope(report, db=db, took_start=t)
+
+
+@router.delete("/{db}/backups/{backup_id}")
+async def delete_backup_endpoint(
+    db:        str,
+    backup_id: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Delete a backup."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    from aethviondb.backup import delete_backup
+    if not await asyncio.to_thread(delete_backup, root, backup_id):
+        raise HTTPException(404, f"Backup {backup_id!r} not found.")
+    return envelope({"deleted": backup_id}, db=db, took_start=t)
+
+
 # Graph
 
 def _bfs(writer, start_id: str, depth: int, direction: str,

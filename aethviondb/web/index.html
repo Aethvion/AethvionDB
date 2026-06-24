@@ -378,6 +378,7 @@
               <div class="setcat active" data-cat="providers">🔌 Providers &amp; embedding</div>
               <div class="setcat" data-cat="vectorize">✦ Vectorization</div>
               <div class="setcat" data-cat="databases">▦ Databases</div>
+              <div class="setcat" data-cat="backups">💾 Backups</div>
               <div class="setcat" data-cat="keys">🔑 API access</div>
               <div class="setcat" data-cat="capabilities">◈ Capabilities</div>
             </div>
@@ -418,6 +419,16 @@
                 <table class="tbl"><thead><tr><th>Name</th><th>Entities</th><th></th></tr></thead><tbody id="dbRows"></tbody></table>
                 <div class="setrow" style="border-top:1px solid var(--line);margin-top:6px"><div class="lhs"><div class="t">Create database</div><div class="s">Switches to it; persisted on first write/import</div></div>
                   <div class="rhs"><input id="newDbName" placeholder="new-database-name"><button class="btn" id="newDbBtn">Create</button></div></div>
+              </div>
+
+              <!-- Backups -->
+              <div class="setsec" data-cat="backups">
+                <h3>Backups <span class="tag" id="backupDbTag" style="font-size:11px;color:var(--muted);font-weight:400"></span></h3>
+                <div class="desc">Point-in-time copies of the active database (entities + name index). Restore replaces the current contents.</div>
+                <div class="setrow"><div class="lhs"><div class="t">Create backup</div><div class="s">An optional label helps you find it later</div></div>
+                  <div class="rhs"><input id="backupLabel" placeholder="label (e.g. before-merge)"><button class="btn cyan" id="backupNew">Back up now</button></div></div>
+                <table class="tbl" style="margin-top:6px"><thead><tr><th>Backup</th><th>Created</th><th>Entities</th><th>Size</th><th></th></tr></thead>
+                  <tbody id="backupRows"><tr><td colspan="5"><div class="empty" style="padding:14px">No backups yet.</div></td></tr></tbody></table>
               </div>
 
               <!-- API access -->
@@ -954,6 +965,43 @@ async function loadSettings(){
   else{const local=vecModels.find(m=>m.provider==="local"); if(local)vm.value=local.model;}
   updateVModelHint();
   pollVecStatus();
+  loadBackups();
+}
+
+// ── Backups ──
+function fmtBytes(n){if(!n&&n!==0)return"—";for(const u of["B","KB","MB","GB"]){if(n<1024||u==="GB")return (u==="B"?n:n.toFixed(1))+" "+u;n/=1024;}}
+async function loadBackups(){
+  $("backupDbTag").textContent="· "+db();
+  const tb=$("backupRows");
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/backups`);
+    if(!d.backups.length){tb.innerHTML='<tr><td colspan="5"><div class="empty" style="padding:14px">No backups yet.</div></td></tr>';return;}
+    tb.innerHTML=d.backups.map(b=>`<tr>
+      <td><b>${esc(b.label||b.backup_id)}</b>${b.label?`<div style="font-size:10.5px;color:var(--dim)">${esc(b.backup_id)}</div>`:""}</td>
+      <td style="color:var(--muted)">${esc((b.created||"").slice(0,19).replace("T"," "))}</td>
+      <td>${b.entity_count??"—"}</td><td>${fmtBytes(b.size_bytes)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sm" data-act="restore" data-id="${esc(b.backup_id)}">↺ restore</button>
+        <button class="btn sm danger" data-act="del" data-id="${esc(b.backup_id)}">🗑</button>
+      </td></tr>`).join("");
+    tb.querySelectorAll("button[data-act]").forEach(btn=>btn.addEventListener("click",()=>backupAction(btn.dataset.act,btn.dataset.id)));
+  }catch(e){tb.innerHTML=`<tr><td colspan="5"><div class="empty">${esc(e.message)}</div></td></tr>`;}
+}
+async function createBackup(){
+  const label=$("backupLabel").value.trim();
+  try{await api(`/${encodeURIComponent(db())}/backups`,{method:"POST",body:{label}});
+    toast("Backup created","ok");$("backupLabel").value="";loadBackups();}
+  catch(e){toast(e.message,"err");}
+}
+async function backupAction(act,id){
+  if(act==="del"){if(!confirm(`Delete backup "${id}"?`))return;
+    try{await api(`/${encodeURIComponent(db())}/backups/${encodeURIComponent(id)}`,{method:"DELETE"});toast("Backup deleted","ok");loadBackups();}catch(e){toast(e.message,"err");}}
+  if(act==="restore"){
+    if(!confirm(`Restore backup "${id}"?\n\nThis REPLACES the current contents of "${db()}" with the backup.`))return;
+    try{const d=await api(`/${encodeURIComponent(db())}/backups/${encodeURIComponent(id)}/restore`,{method:"POST"});
+      toast(`Restored ${d.entity_count} entities`,"ok");
+      explorerRows=[];explorerDb=null;await loadDatabases();}   // refresh everything from restored state
+    catch(e){toast(e.message,"err");}}
 }
 
 // ── Capabilities + provider settings ──
@@ -1167,6 +1215,7 @@ $("vStart").addEventListener("click",startVec);
 $("vCancel").addEventListener("click",cancelVec);
 $("capRefresh").addEventListener("click",loadCapabilities);
 $("provSave").addEventListener("click",saveProviders);
+$("backupNew").addEventListener("click",createBackup);
 document.querySelectorAll(".setcat").forEach(c=>c.addEventListener("click",()=>{
   const cat=c.dataset.cat;
   document.querySelectorAll(".setcat").forEach(x=>x.classList.toggle("active",x===c));
