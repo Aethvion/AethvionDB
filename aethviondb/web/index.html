@@ -127,7 +127,7 @@
   .field textarea{min-height:80px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
   .hint{font-size:11px;color:var(--dim);margin-top:-4px}
-  dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line2);border-radius:14px;padding:0;width:440px;max-width:92vw;box-shadow:0 20px 60px #000a}
+  dialog{background:var(--panel-solid);color:var(--text);border:1px solid var(--line2);border-radius:14px;padding:0;width:500px;max-width:92vw;box-shadow:0 20px 60px #000a}
   dialog::backdrop{background:#02040ab0;backdrop-filter:blur(2px)}
   dialog form,dialog .dlg{padding:20px;display:flex;flex-direction:column}
   dialog h3{margin:0 0 12px}
@@ -158,6 +158,18 @@
   .setrow .rhs{flex:none;display:flex;gap:8px;align-items:center}
   .setrow .rhs input:not([type=checkbox]),.setrow .rhs select{background:#0c1422;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;outline:none;min-width:240px;color:var(--text)}
   .setrow .rhs input[type=checkbox]{width:17px;height:17px;accent-color:var(--cyan)}
+  /* Dialog rows: same tidy pattern, sized for a dialog */
+  dialog .drow{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:11px 0;border-bottom:1px solid var(--line)}
+  dialog .drow .lhs .t{font-size:13px;font-weight:600}
+  dialog .drow .lhs .s{font-size:11px;color:var(--muted);margin-top:2px}
+  dialog .drow .rhs{flex:none;display:flex;gap:8px;align-items:center}
+  dialog .drow .rhs input:not([type=checkbox]),dialog .drow .rhs select{min-width:230px}
+  dialog .drow .rhs input[type=checkbox]{width:17px;height:17px;accent-color:var(--cyan)}
+  dialog .dstack{padding:11px 0;border-bottom:1px solid var(--line)}
+  dialog .dstack .t{font-size:13px;font-weight:600;margin-bottom:6px}
+  dialog .dstack .s{font-size:11px;color:var(--muted);margin:-3px 0 6px}
+  dialog .dstack input,dialog .dstack textarea,dialog .dstack select{width:100%}
+  dialog .drows{margin:4px 0 6px}
 </style>
 </head>
 <body>
@@ -383,40 +395,45 @@
 <!-- Dialogs -->
 <dialog id="newDlg"><form method="dialog" id="newForm">
   <h3>New entity</h3>
-  <div class="field"><label>Name</label><input id="nName" required autocomplete="off"></div>
-  <div class="row2">
-    <div class="field"><label>Type</label><input id="nType" value="concept" autocomplete="off"></div>
-    <div class="field"><label>Kind (optional)</label><input id="nKind" autocomplete="off"></div>
+  <div class="drows">
+    <div class="drow"><div class="lhs"><div class="t">Name</div><div class="s">Canonical name (deduped by the index)</div></div>
+      <div class="rhs"><input id="nName" required autocomplete="off"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Type</div><div class="s">Coarse class, e.g. concept, person</div></div>
+      <div class="rhs"><input id="nType" value="concept" autocomplete="off"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Kind <span style="color:var(--dim)">· optional</span></div><div class="s">Fine sub-type, e.g. software.module</div></div>
+      <div class="rhs"><input id="nKind" autocomplete="off"></div></div>
+    <div class="dstack" style="border-bottom:0"><div class="t">Summary</div><textarea id="nSummary" style="min-height:60px"></textarea></div>
   </div>
-  <div class="field"><label>Summary</label><textarea id="nSummary" style="min-height:60px"></textarea></div>
   <div class="actions"><button class="btn" value="cancel" type="button" id="nCancel">Cancel</button><button class="btn cyan" value="default">Create</button></div>
 </form></dialog>
 
 <dialog id="editDlg"><div class="dlg">
   <h3>Edit entity</h3>
-  <div class="row2">
-    <div class="field"><label>Name</label><input id="eName"></div>
-    <div class="field"><label>Status</label>
-      <select id="eStatus"><option>active</option><option>stub</option><option>planned</option><option>deprecated</option><option>experimental</option><option>deleted</option></select></div>
+  <div class="drows">
+    <div class="drow"><div class="lhs"><div class="t">Name</div></div><div class="rhs"><input id="eName"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Status</div></div>
+      <div class="rhs"><select id="eStatus"><option>active</option><option>stub</option><option>planned</option><option>deprecated</option><option>experimental</option><option>deleted</option></select></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Type</div></div><div class="rhs"><input id="eType"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Kind</div></div><div class="rhs"><input id="eKind"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Tags</div><div class="s">Comma separated</div></div><div class="rhs"><input id="eTags"></div></div>
+    <div class="dstack"><div class="t">Summary</div><textarea id="eSummary" style="min-height:60px"></textarea></div>
+    <div class="dstack" style="border-bottom:0"><div class="t">Properties <span style="color:var(--dim)">· JSON</span></div><textarea id="eProps"></textarea></div>
   </div>
-  <div class="row2">
-    <div class="field"><label>Type</label><input id="eType"></div>
-    <div class="field"><label>Kind</label><input id="eKind"></div>
-  </div>
-  <div class="field"><label>Summary</label><textarea id="eSummary" style="min-height:60px"></textarea></div>
-  <div class="field"><label>Tags (comma separated)</label><input id="eTags"></div>
-  <div class="field"><label>Properties (JSON)</label><textarea id="eProps"></textarea></div>
   <div class="hint">Saved with optimistic concurrency — a conflicting edit returns 409.</div>
   <div class="actions"><button class="btn" id="eCancel">Cancel</button><button class="btn cyan" id="eSave">Save (PATCH)</button></div>
 </div></dialog>
 
 <dialog id="impDlg"><div class="dlg">
   <h3>Import database</h3>
-  <div class="hint" style="margin-bottom:8px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
-  <div class="field"><label>Source type</label><select id="impType"><option value="sqlite">SQLite (.db / .sqlite)</option></select></div>
-  <div class="field"><label>Source file path (on this machine)</label>
-    <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\sample.db" autocomplete="off"></div>
-  <div class="field"><label>Target database name</label><input id="impDb" placeholder="chinook" autocomplete="off"></div>
+  <div class="hint" style="margin-bottom:4px">Converts an external database into AethvionDB entities. Tables → kinds, rows → entities, foreign keys → relations.</div>
+  <div class="drows">
+    <div class="drow"><div class="lhs"><div class="t">Source type</div></div>
+      <div class="rhs"><select id="impType"><option value="sqlite">SQLite (.db / .sqlite)</option></select></div></div>
+    <div class="dstack"><div class="t">Source file path</div><div class="s">Path on this machine</div>
+      <input id="impPath" placeholder="C:\Aethvion\AethvionDB\benchmark_databases\sample.db" autocomplete="off"></div>
+    <div class="drow" style="border-bottom:0"><div class="lhs"><div class="t">Target database</div><div class="s">Created if it doesn't exist</div></div>
+      <div class="rhs"><input id="impDb" placeholder="chinook" autocomplete="off"></div></div>
+  </div>
   <div class="out" id="impOut"></div>
   <div class="actions">
     <button class="btn" type="button" id="impClose">Close</button>
@@ -427,13 +444,16 @@
 
 <dialog id="bakeDlg"><div class="dlg">
   <h3>Bake a snapshot</h3>
-  <div class="hint" style="margin-bottom:8px">Flattens the raw entities into a downloadable snapshot for downstream consumers.</div>
-  <div class="row2">
-    <div class="field"><label>Name</label><input id="bName" value="default"></div>
-    <div class="field"><label>Format</label><select id="bFormat"><option>jsonl</option><option>json</option><option>markdown</option><option>txt</option></select></div>
+  <div class="hint" style="margin-bottom:4px">Flattens the raw entities into a downloadable snapshot for downstream consumers.</div>
+  <div class="drows">
+    <div class="drow"><div class="lhs"><div class="t">Name</div></div><div class="rhs"><input id="bName" value="default"></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Format</div></div>
+      <div class="rhs"><select id="bFormat"><option>jsonl</option><option>json</option><option>markdown</option><option>txt</option></select></div></div>
+    <div class="drow"><div class="lhs"><div class="t">Include stubs</div><div class="s">Bake stub entities too</div></div>
+      <div class="rhs"><input type="checkbox" id="bStubs" checked></div></div>
+    <div class="drow" style="border-bottom:0"><div class="lhs"><div class="t">Include vectors</div><div class="s">Embed vectors in the snapshot</div></div>
+      <div class="rhs"><input type="checkbox" id="bVectors"></div></div>
   </div>
-  <label style="font-size:12px;display:flex;gap:7px;align-items:center;margin-bottom:8px"><input type="checkbox" id="bStubs" checked style="width:auto"> include stubs</label>
-  <label style="font-size:12px;display:flex;gap:7px;align-items:center"><input type="checkbox" id="bVectors" style="width:auto"> include vectors</label>
   <div class="actions"><button class="btn" id="bCancel">Cancel</button><button class="btn cyan" id="bGo">Start bake</button></div>
 </div></dialog>
 
