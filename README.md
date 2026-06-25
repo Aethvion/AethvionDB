@@ -158,11 +158,24 @@ aethviondb/
 
 ---
 
+## Documentation
+
+- [Quickstart](docs/QUICKSTART.md) — install, run, first entity, import.
+- [HTTP API reference](docs/API.md) — every endpoint, the response envelope, auth.
+- [Library guide](docs/LIBRARY.md) — use the engine in-process.
+- [Agents & the live feed](docs/AGENTS.md) — multiple agents working live.
+- [Storage format](docs/STORAGE_FORMAT.md) — on-disk layout, versioning, concurrency.
+
+---
+
 ## Roadmap
 
-- [ ] Stabilise the standalone package (extract cleanly from Aethvion Suite)
-- [ ] First tagged release + install instructions
-- [ ] Realtime change feed (who changed what, when) for a live memory dashboard
+Done: typed entity store, dedup, snapshots, search, graph, import/export
+(SQLite + `.snapshot`), baking, **realtime change feed** (live multi-agent
+dashboard), versioned storage format, cross-process write safety, backups.
+
+Toward a stable release:
+- [ ] First tagged release on PyPI + `aethviondb` CLI
 - [ ] Per-type schema / ontology enforcement
 - [ ] MCP server — expose distill / upsert / search / graph as agent tools
 
