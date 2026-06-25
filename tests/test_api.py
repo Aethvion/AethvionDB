@@ -193,6 +193,32 @@ def test_capabilities_and_settings(client):
     assert "secret" not in str(s)   # raw key never returned
 
 
+# ── Validation / health (P1-8) ──
+
+def test_validate_clean_database(client, db_name):
+    _upsert(client, db_name, name="Solo", type="concept")
+    d = _data(client.get(f"/api/v1/{db_name}/raw/validate"))
+    assert d["total_entities"] == 1 and d["with_errors"] == 0
+    assert d["clean"] == 1 and d["duplicate_groups"] == []
+
+
+def test_validate_flags_broken_relation(client, db_name):
+    # A relation pointing at a non-existent id is a reference-integrity error.
+    eid = _upsert(client, db_name, name="Dangling")["entity"]["id"]
+    client.patch(f"/api/v1/{db_name}/raw/entities/{eid}", json={"mutations": {
+        "sections": {"relations": [{"kind": "depends_on", "target_id": "ws_ghost"}]}}})
+    d = _data(client.get(f"/api/v1/{db_name}/raw/validate"))
+    assert d["with_errors"] >= 1
+    assert any(e["id"] == eid for e in d["entities_with_errors"])
+
+
+def test_validate_surfaces_soft_deleted(client, db_name):
+    eid = _upsert(client, db_name, name="WillDelete")["entity"]["id"]
+    client.delete(f"/api/v1/{db_name}/raw/entities/{eid}")   # soft
+    d = _data(client.get(f"/api/v1/{db_name}/raw/validate"))
+    assert any(x["id"] == eid for x in d["deleted_entities"])
+
+
 # ── API hardening (P0-5) ──
 
 def test_error_envelope_on_404(client, db_name):

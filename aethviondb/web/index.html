@@ -208,6 +208,7 @@
     <div class="nav" data-view="graph">⬡<span class="lbl">Knowledge graph</span></div>
     <div class="nav" data-view="bakes">▦<span class="lbl">Bakes</span></div>
     <div class="nav" data-view="import">⤓<span class="lbl">Import</span></div>
+    <div class="nav" data-view="health">✓<span class="lbl">Health</span></div>
     <div class="nav" data-view="activity">≋<span class="lbl">Activity</span></div>
     <div class="sp"></div>
     <div class="nav" data-view="settings">⚙<span class="lbl">Settings</span></div>
@@ -358,6 +359,15 @@
               <div id="impProgress" style="margin-top:16px"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ───────── HEALTH ───────── -->
+      <div class="view" id="v-health">
+        <div class="panel" style="flex:1">
+          <div class="ph"><i>✓</i> Health &amp; consistency <span class="tag" id="healthTag"></span>
+            <button class="btn sm" id="healthRefresh" style="margin-left:8px">↻ Run checks</button></div>
+          <div class="pbody" id="healthBody"><div class="empty">Run checks to validate the database.</div></div>
         </div>
       </div>
 
@@ -559,6 +569,7 @@ function switchView(v){
   if(v==="settings") loadSettings();
   if(v==="activity") renderActivity();
   if(v==="import") loadSources();
+  if(v==="health") loadHealth();
   if(v==="explorer"){ if(explorerDb!==db()||!explorerRows.length){ if($("search").value.trim())runSearch(); else loadExplorer(); } else drawWindow(); }
 }
 document.querySelectorAll(".rail .nav").forEach(n=>n.addEventListener("click",()=>switchView(n.dataset.view)));
@@ -933,6 +944,55 @@ async function startBake(){
 // ── Activity ──
 function renderActivity(){if(liveEvents.length)renderLiveFeeds();else renderFeed($("actFeed"),60);}
 
+// ── Health / validation ──
+async function loadHealth(){
+  const box=$("healthBody");
+  box.innerHTML='<div class="empty">Running consistency checks…</div>';
+  $("healthTag").textContent="";
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/raw/validate`);
+    $("healthTag").innerHTML=d.with_errors?`<span class="st error">${d.with_errors} with errors</span>`:`<span class="st done">all clean</span>`;
+    const card=(label,val,color)=>`<div class="card"><div class="k">${label}</div><div class="v" style="color:${color||'var(--text)'}">${val.toLocaleString()}</div></div>`;
+    let h=`<div class="stats" style="grid-template-columns:repeat(5,1fr)">
+      ${card("Entities",d.total_entities)}
+      ${card("Clean",d.clean,"var(--green)")}
+      ${card("With errors",d.with_errors,d.with_errors?"var(--red)":"var(--green)")}
+      ${card("Errors",d.total_errors,d.total_errors?"var(--red)":"var(--text)")}
+      ${card("Warnings",d.total_warnings,d.total_warnings?"var(--amber)":"var(--text)")}
+    </div>`;
+    const linkRow=(it,extra)=>`<div class="rel" data-id="${esc(it.id)}"><b>${esc(it.name||it.id)}</b>${extra?` <span class="dir">${extra}</span>`:""}</div>`;
+    // Entities with errors
+    if(d.entities_with_errors&&d.entities_with_errors.length){
+      h+=`<div class="secblk" style="margin-top:14px"><div class="sh" style="color:var(--red)">Errors · ${d.entities_with_errors.length}</div>`+
+        d.entities_with_errors.map(e=>linkRow(e,esc(e.issues.map(i=>i.message).join("; ")))).join("")+`</div>`;
+    }
+    // Duplicate groups
+    if(d.duplicate_groups&&d.duplicate_groups.length){
+      h+=`<div class="secblk"><div class="sh" style="color:var(--amber)">Duplicate names / aliases · ${d.duplicate_groups.length}</div>`+
+        d.duplicate_groups.map(g=>`<div class="rel">${(g.entities||g.ids||[]).map(x=>`<span class="chip" style="cursor:pointer" data-id="${esc(x.id||x)}">${esc(x.name||x)}</span>`).join("")}</div>`).join("")+`</div>`;
+    }
+    // Warning summary
+    if(d.warning_summary&&d.warning_summary.length){
+      h+=`<div class="secblk"><div class="sh" style="color:var(--amber)">Warnings</div>`+
+        d.warning_summary.map(w=>`<div class="rel"><span class="rk" style="color:var(--amber);border-color:#fbbf2444">${w.count}</span> ${esc(w.label)}</div>`).join("")+`</div>`;
+    }
+    // Orphan stubs
+    if(d.orphan_stubs&&d.orphan_stubs.length){
+      h+=`<div class="secblk"><div class="sh">Orphan stubs · ${d.orphan_stubs.length}</div>`+
+        d.orphan_stubs.slice(0,100).map(s=>linkRow(s)).join("")+`</div>`;
+    }
+    // Soft-deleted
+    if(d.deleted_entities&&d.deleted_entities.length){
+      h+=`<div class="secblk"><div class="sh">Soft-deleted (pending purge) · ${d.deleted_entities.length}</div>`+
+        d.deleted_entities.slice(0,100).map(s=>linkRow(s)).join("")+`</div>`;
+    }
+    if(!d.with_errors&&!d.total_warnings&&!(d.duplicate_groups||[]).length&&!(d.orphan_stubs||[]).length)
+      h+=`<div class="empty" style="margin-top:20px;color:var(--green)">✓ No issues found — the database is consistent.</div>`;
+    box.innerHTML=h;
+    box.querySelectorAll("[data-id]").forEach(el=>el.addEventListener("click",()=>el.dataset.id&&openEntity(el.dataset.id)));
+  }catch(e){box.innerHTML=`<div class="empty" style="color:var(--pink)">${esc(e.message)}</div>`;}
+}
+
 // ── Settings ──
 async function loadSettings(){
   // databases
@@ -1216,6 +1276,7 @@ $("vCancel").addEventListener("click",cancelVec);
 $("capRefresh").addEventListener("click",loadCapabilities);
 $("provSave").addEventListener("click",saveProviders);
 $("backupNew").addEventListener("click",createBackup);
+$("healthRefresh").addEventListener("click",loadHealth);
 document.querySelectorAll(".setcat").forEach(c=>c.addEventListener("click",()=>{
   const cat=c.dataset.cat;
   document.querySelectorAll(".setcat").forEach(x=>x.classList.toggle("active",x===c));

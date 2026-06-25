@@ -1149,6 +1149,27 @@ async def delete_backup_endpoint(
     return envelope({"deleted": backup_id}, db=db, took_start=t)
 
 
+# Validation / health — cross-entity consistency report.
+
+@router.get("/{db}/raw/validate")
+async def validate_database(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Run the consistency checks across the whole database and return an
+    aggregate health report: totals, entities with errors, duplicate name/alias
+    groups, a warning breakdown, orphan stubs, and soft-deleted files pending
+    purge. Runs off the event loop (it touches every entity)."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    w = _writer(db)
+    from aethviondb.validator import Validator
+    report = await asyncio.to_thread(lambda: Validator(writer=w).summary())
+    return envelope(report, db=db, took_start=t)
+
+
 # Graph
 
 def _bfs(writer, start_id: str, depth: int, direction: str,
