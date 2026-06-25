@@ -40,6 +40,7 @@ google = ["google-genai>=1.0.0"]
 dev = ["pytest>=7.0"]
 
 [project.scripts]
+aethviondb = "aethviondb.cli:main"
 aethviondb-server = "aethviondb.server:main"
 
 [project.urls]
