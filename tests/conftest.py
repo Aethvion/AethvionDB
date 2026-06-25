@@ -1,14 +1,36 @@
 """Shared pytest fixtures for AethvionDB. All use isolated tmp_path dirs."""
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
+
+# Point the whole test session at a throwaway data dir BEFORE aethviondb.config
+# is imported, so HTTP/API tests (which resolve db roots from AETHVIONDB_DATA_DIR)
+# never touch the user's real ~/.aethvion. Library tests use explicit tmp dirs.
+os.environ.setdefault("AETHVIONDB_DATA_DIR", tempfile.mkdtemp(prefix="aethviondb_test_"))
 
 import pytest
 
 _ROOT = Path(__file__).parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
+
+
+@pytest.fixture()
+def client():
+    """A FastAPI TestClient over a fresh app (shares the session temp data dir)."""
+    from fastapi.testclient import TestClient
+    from aethviondb.server import create_app
+    return TestClient(create_app())
+
+
+@pytest.fixture()
+def db_name():
+    """A unique database name per test, so tests don't collide in the shared dir."""
+    import uuid
+    return "t_" + uuid.uuid4().hex[:10]
 
 
 @pytest.fixture()
