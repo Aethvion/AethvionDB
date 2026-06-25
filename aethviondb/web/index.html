@@ -537,7 +537,7 @@ async function api(path,{method="GET",body,raw=false}={}){
   if(raw) return r;
   const txt=await r.text(); let j={}; try{j=JSON.parse(txt);}catch{}
   if(!r.ok||j.ok===false){
-    let d=j.detail!==undefined?j.detail:(j.message||txt);
+    let d=(j.error&&j.error.message)||j.detail||j.message||txt;
     if(d&&typeof d==="object") d=d.message||JSON.stringify(d);
     throw new Error(d||("HTTP "+r.status));
   }

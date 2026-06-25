@@ -191,3 +191,47 @@ def test_capabilities_and_settings(client):
     s = _data(client.get("/api/v1/settings"))
     assert s["providers"]["openai"]["set"] is True
     assert "secret" not in str(s)   # raw key never returned
+
+
+# ── API hardening (P0-5) ──
+
+def test_error_envelope_on_404(client, db_name):
+    _upsert(client, db_name, name="x")
+    r = client.get(f"/api/v1/{db_name}/raw/entities/ws_missing")
+    assert r.status_code == 404
+    body = r.json()
+    assert body["ok"] is False
+    assert body["error"]["code"] == "not_found" and body["error"]["message"]
+
+
+def test_error_envelope_preserves_409_detail(client, db_name):
+    eid = _upsert(client, db_name, name="Guard2")["entity"]["id"]
+    client.patch(f"/api/v1/{db_name}/raw/entities/{eid}",
+                 json={"mutations": {}, "expected_version": 1})
+    r = client.patch(f"/api/v1/{db_name}/raw/entities/{eid}",
+                     json={"mutations": {}, "expected_version": 1})
+    assert r.status_code == 409
+    body = r.json()
+    assert body["ok"] is False
+    assert body["error"]["code"] == "version_conflict"
+    assert body["detail"]["error"] == "version_conflict"      # back-compat shape kept
+
+
+def test_invalid_db_name_rejected(client):
+    r = client.get("/api/v1/bad..name/raw/entities")
+    assert r.status_code == 400 and r.json()["ok"] is False
+
+
+def test_validation_error_envelope(client, db_name):
+    # upsert requires 'name' — omit it to trigger 422.
+    r = client.post(f"/api/v1/{db_name}/raw/entities/upsert", json={"type": "concept"})
+    assert r.status_code == 422
+    body = r.json()
+    assert body["error"]["code"] == "validation_error" and body["error"]["errors"]
+
+
+def test_request_body_too_large(client, db_name, monkeypatch):
+    monkeypatch.setenv("AETHVIONDB_MAX_BODY_BYTES", "200")
+    big = {"name": "Big", "summary": "x" * 1000}
+    r = client.post(f"/api/v1/{db_name}/raw/entities/upsert", json=big)
+    assert r.status_code == 413 and r.json()["error"]["code"] == "payload_too_large"
