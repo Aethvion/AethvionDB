@@ -20,6 +20,8 @@ overridable with `AETHVIONDB_DATA_DIR`). Each named database is independent.
 ├── AethvionDB.SNAPSHOT            # warm-start cache: compact JSON array of all entities
 ├── AethvionDB.SNAPSHOT.meta.json  # { v, built_at, entity_count, built_gen, elapsed_ms }
 ├── AethvionDB.GEN                 # { "gen": N } — O(1) data-generation counter
+├── AethvionDB.WRITELOCK          # cross-process write lock (filelock sidecar)
+├── name_index.json.lock           # cross-process lock for the dedup gate
 ├── AethvionDB.VECINFO            # vectorization progress sidecar (optional)
 ├── settings.json                  # host settings (provider keys, default model) — see note
 ├── chunks/                        # retrieval chunk store (optional)
@@ -89,6 +91,28 @@ These are independent: editing an entity 50 times gives `version: 51`,
   misinterpreted by an older engine.
 
 ---
+
+## Concurrency & write safety
+
+Writes are safe both across threads and across processes — you can run a script
+against a database while the server is also writing to it.
+
+- **Within a process**: a per-entity `threading.Lock` makes each
+  read-modify-write atomic, so concurrent edits to the same entity never lose an
+  update (different entities proceed in parallel).
+- **Across processes**: a per-database file lock (`AethvionDB.WRITELOCK`) wraps
+  every mutation, and the name index takes its own file lock
+  (`name_index.json.lock`) and re-reads from disk before mutating — so the
+  dedup gate is correct across processes (concurrent `create("Foo")` from two
+  processes yields one entity, not two).
+- **Torn files**: every write is temp-file + atomic rename, so a reader never
+  sees a half-written file even if a process is killed mid-write.
+- **Optimistic concurrency**: pass `expected_version` (or the `If-Match` header)
+  to a write; a stale version is rejected with `409` instead of clobbering a
+  newer edit.
+
+The `.lock` files are coordination sidecars — safe to delete when no process is
+running.
 
 ## Rebuilding derived state
 

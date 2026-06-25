@@ -54,16 +54,27 @@ class VersionConflictError(RuntimeError):
         )
 
 
-# Per-entity write locks, keyed by the absolute entity-file path so they are
-# shared across every EntityWriter instance pointing at the same database
-# (the API builds a fresh writer per request). This makes the read-modify-write
-# in update()/delete() atomic *within this process*.
+# Write locking — two layers, composed so a read-modify-write is atomic both
+# across threads *and* across processes:
 #
-# This is the seam for cross-process safety later: when the multiplayer/edge
-# story arrives, a file lock (e.g. filelock.FileLock on "<path>.lock") composes
-# in here without touching any call site.
+#   1. Per-entity threading.Lock (keyed by absolute path, shared across the
+#      fresh EntityWriter instances the API builds per request) — fine-grained
+#      concurrency within this process: two threads editing different entities
+#      never block each other.
+#   2. Per-database cross-process FileLock (<db_root>/AethvionDB.WRITELOCK) —
+#      so a script running alongside the server can't interleave its writes with
+#      the server's and lose updates or tear a file. The FileLock is re-entrant
+#      within a process, so threads here aren't serialized by it (layer 1 does
+#      that); it only blocks *other* processes.
+#
+# This is the seam where a cross-host broker would replace the FileLock for the
+# distributed multiplayer story.
+from contextlib import contextmanager
+from filelock import FileLock
+
 _locks_guard: threading.Lock = threading.Lock()
 _entity_locks: dict[str, threading.Lock] = {}
+_db_filelocks: dict[str, FileLock] = {}
 
 
 def _lock_for(path: Path) -> threading.Lock:
@@ -74,6 +85,35 @@ def _lock_for(path: Path) -> threading.Lock:
             lock = threading.Lock()
             _entity_locks[key] = lock
         return lock
+
+
+def _db_filelock(db_root: Path) -> FileLock:
+    key = str(Path(db_root).resolve())
+    with _locks_guard:
+        fl = _db_filelocks.get(key)
+        if fl is None:
+            fl = FileLock(str(Path(db_root) / "AethvionDB.WRITELOCK"))
+            _db_filelocks[key] = fl
+        return fl
+
+
+@contextmanager
+def _write_lock(db_root: Path, entity_path: Path):
+    """Acquire the per-entity thread lock then the per-db cross-process file lock.
+
+    Always in this order, everywhere, so the two layers never deadlock.
+    """
+    t = _lock_for(entity_path)
+    f = _db_filelock(db_root)
+    t.acquire()
+    try:
+        f.acquire()
+        try:
+            yield
+        finally:
+            f.release()
+    finally:
+        t.release()
 
 
 class EntityWriter:
@@ -249,7 +289,7 @@ class EntityWriter:
 
         Returns the updated entity.
         """
-        with _lock_for(self._path_for(entity_id)):
+        with _write_lock(self._dir.parent, self._path_for(entity_id)):
             entity = self.get(entity_id)
             if entity is None:
                 raise FileNotFoundError(f"Entity {entity_id!r} not found")
@@ -317,7 +357,7 @@ class EntityWriter:
         Hard deletion is irreversible — use with caution.
         Returns True if the entity existed.
         """
-        with _lock_for(self._path_for(entity_id)):
+        with _write_lock(self._dir.parent, self._path_for(entity_id)):
             if not self.exists(entity_id):
                 return False
             if soft:

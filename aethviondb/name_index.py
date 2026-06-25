@@ -10,9 +10,10 @@ Format:  { "<normalized_name>": "<ws_id>", ... }
 
 Normalization: lowercase, strip outer whitespace, collapse internal whitespace.
 
-Thread-safety: Uses a threading.Lock around all reads and writes.
-               Single-process by design; multi-process coordination is handled
-               at the AethvionDB engine layer, not here.
+Concurrency: a threading.Lock serializes within a process; a cross-process
+             FileLock (``<index>.lock``) plus a reload-before-mutate makes the
+             dedup gate correct across processes too (a script running alongside
+             the server can't miss or clobber registrations).
 """
 
 from __future__ import annotations
@@ -22,6 +23,8 @@ import re
 import threading
 from pathlib import Path
 from typing import Optional
+
+from filelock import FileLock
 
 from aethviondb._utils import get_logger, atomic_json_write
 from aethviondb.config import AETHVIONDB
@@ -53,6 +56,10 @@ class NameIndex:
     def __init__(self, index_path: Optional[Path] = None) -> None:
         self._path = index_path or _DEFAULT_INDEX_PATH
         self._lock = threading.Lock()
+        # Cross-process lock so concurrent processes (e.g. a script alongside the
+        # server) can't clobber each other's index writes or miss each other's
+        # registrations — the dedup gate must be correct across processes.
+        self._flock = FileLock(str(self._path) + ".lock")
         self._data: dict[str, str] = {}
         self._loaded = False
 
@@ -79,6 +86,19 @@ class NameIndex:
         """Atomically write the index to disk. Must be called under _lock."""
         atomic_json_write(self._path, self._data, sort_keys=True)
 
+    def _reload_locked(self) -> None:
+        """Re-read the index from disk into memory. Must be called under _lock.
+
+        Used inside the cross-process critical section so a mutation sees writes
+        another process made since this instance last loaded.
+        """
+        if self._path.exists():
+            try:
+                self._data = json.loads(self._path.read_text(encoding="utf-8"))
+            except Exception:
+                pass  # keep current in-memory copy on a transient read error
+        self._loaded = True
+
     # Public API
 
     def get(self, name: str) -> Optional[str]:
@@ -94,20 +114,24 @@ class NameIndex:
         """
         self._ensure_loaded()
         key = _normalize(name)
-        with self._lock:
-            if key in self._data:
-                return self._data[key], False
-            self._data[key] = default_id
-            self._save()
-            return default_id, True
+        with self._flock:               # cross-process: serialize the dedup gate
+            with self._lock:
+                self._reload_locked()   # see registrations from other processes
+                if key in self._data:
+                    return self._data[key], False
+                self._data[key] = default_id
+                self._save()
+                return default_id, True
 
     def register(self, name: str, entity_id: str) -> None:
         """Register a single name→ID mapping. Overwrites silently if already present."""
         self._ensure_loaded()
         key = _normalize(name)
-        with self._lock:
-            self._data[key] = entity_id
-            self._save()
+        with self._flock:
+            with self._lock:
+                self._reload_locked()
+                self._data[key] = entity_id
+                self._save()
         logger.debug(f"[NameIndex] registered {name!r} → {entity_id}")
 
     def register_many(self, mapping: dict[str, str]) -> int:
@@ -117,34 +141,40 @@ class NameIndex:
         the right path for bulk imports.
         """
         self._ensure_loaded()
-        with self._lock:
-            for name, entity_id in mapping.items():
-                key = _normalize(name)
-                if key:
-                    self._data[key] = entity_id
-            self._save()
+        with self._flock:
+            with self._lock:
+                self._reload_locked()
+                for name, entity_id in mapping.items():
+                    key = _normalize(name)
+                    if key:
+                        self._data[key] = entity_id
+                self._save()
         return len(mapping)
 
     def register_aliases(self, entity_id: str, aliases: list[str]) -> None:
         """Register multiple alias names for the same entity ID."""
         self._ensure_loaded()
-        with self._lock:
-            for alias in aliases:
-                key = _normalize(alias)
-                if key and key not in self._data:
-                    self._data[key] = entity_id
-            self._save()
+        with self._flock:
+            with self._lock:
+                self._reload_locked()
+                for alias in aliases:
+                    key = _normalize(alias)
+                    if key and key not in self._data:
+                        self._data[key] = entity_id
+                self._save()
 
     def unregister(self, name: str) -> bool:
         """Remove a name from the index. Returns True if it was present."""
         self._ensure_loaded()
         key = _normalize(name)
-        with self._lock:
-            if key in self._data:
-                del self._data[key]
-                self._save()
-                return True
-            return False
+        with self._flock:
+            with self._lock:
+                self._reload_locked()
+                if key in self._data:
+                    del self._data[key]
+                    self._save()
+                    return True
+                return False
 
     def list_all(self) -> dict[str, str]:
         """Return a snapshot of the full index (name → id)."""
