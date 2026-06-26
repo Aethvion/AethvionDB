@@ -67,10 +67,21 @@ def _max_body_bytes() -> int:
 
 
 def create_app() -> FastAPI:
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI):
+        # Let worker threads (import, vectorize) fan out live events onto this loop.
+        import asyncio
+        from aethviondb import events
+        events.set_loop(asyncio.get_running_loop())
+        yield
+
     app = FastAPI(
         title="AethvionDB",
         version=__version__,
         description="Agent-first knowledge database — typed entity graph over /api/v1.",
+        lifespan=_lifespan,
     )
 
     # ── Consistent error envelope (4xx/5xx mirror the success {ok,data,meta}) ──

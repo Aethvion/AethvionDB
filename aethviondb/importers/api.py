@@ -166,4 +166,18 @@ async def run(req: ImportRequest):
         summary = await asyncio.to_thread(imp.run, root, req.db)
     except Exception as e:
         raise HTTPException(400, f"Import failed: {e}")
+
+    # Announce the import on the live feed (one summary event, not per entity).
+    try:
+        from datetime import datetime, timezone
+        from aethviondb import events
+        events.publish(req.db, {
+            "action":      "import",
+            "name":        f"{summary.entities} entities from {Path(req.source).name}",
+            "entity_type": req.source_type,
+            "actor":       "import",
+            "ts":          datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+    except Exception:
+        pass
     return summary.__dict__

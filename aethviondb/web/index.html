@@ -591,6 +591,7 @@ function connectEvents(){
   }catch{}
 }
 function onLiveEvent(ev){
+  if(ev.action==="presence"){ $("liveTxt").textContent=(ev.count||1)+" live"; return; }
   liveEvents.unshift(ev); if(liveEvents.length>120)liveEvents.pop();
   flashLive();
   renderLiveFeeds();
@@ -602,7 +603,7 @@ function onLiveEvent(ev){
   },900);
 }
 function flashLive(){const d=$("liveDot"); if(!d)return; d.style.background="var(--cyan)"; d.style.boxShadow="0 0 10px var(--cyan)"; setTimeout(()=>{d.style.background="var(--green)";d.style.boxShadow="0 0 8px var(--green)";},400);}
-const ACT_ICON={created:"✦",updated:"✎",deleted:"🗑"};
+const ACT_ICON={created:"✦",updated:"✎",deleted:"🗑",import:"⤓",vectorized:"✦"};
 function evHtml(ev){
   const c=(ev.entity_type&&TYPE_COLOR[ev.entity_type])?TYPE_COLOR[ev.entity_type]:ccol((Array.isArray(ev.kind)?ev.kind[0]:ev.kind)||ev.entity_type||"other");
   const kind=(Array.isArray(ev.kind)?ev.kind[0]:ev.kind)||ev.entity_type||"";

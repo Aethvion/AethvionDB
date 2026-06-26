@@ -540,6 +540,18 @@ async def vectorize_all(
             f"[Vectorizer] Done: {vectorized} embedded, {skipped} skipped, "
             f"{len(failed)} failed. Tokens: {session_tokens}, Cost: ${session_cost:.6f}"
         )
+        # Announce on the live feed (single summary event).
+        try:
+            from aethviondb import events
+            events.publish_threadsafe(db_root.name, {
+                "action":      "vectorized",
+                "name":        f"{vectorized} embedded with {model}",
+                "entity_type": "embedding",
+                "actor":       "vectorizer",
+                "ts":          now_iso(),
+            })
+        except Exception:
+            pass
 
     except Exception as exc:
         logger.error(f"[Vectorizer] Task level error: {exc}")

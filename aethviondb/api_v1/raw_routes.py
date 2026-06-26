@@ -1046,36 +1046,52 @@ async def download_snapshot(
 async def events_stream(
     db:      str,
     request: Request,
-    key:     Optional[str] = Query(None, description="API key (EventSource can't send headers)"),
+    key:           Optional[str] = Query(None, description="API key (EventSource can't send headers)"),
+    last_event_id: Optional[str] = Query(None, alias="last_event_id"),
     authorization:    Optional[str] = Header(None),
     x_aethviondb_key: Optional[str] = Header(None),
 ):
     """Stream change events for this database as Server-Sent Events.
 
-    Each event is one JSON line: action, id, name, type, version, actor, ts.
-    The browser EventSource API can't set headers, so a key may be passed as a
-    ``?key=`` query parameter for protected databases.
+    Each event carries an ``id`` and one JSON ``data`` line (action, id, name,
+    type, version, actor, ts). On reconnect the browser sends ``Last-Event-ID``
+    (also accepted as ``?last_event_id=``) and missed events are replayed from a
+    recent-events buffer. ``?key=`` carries the API key (EventSource can't set
+    headers). ``presence`` events carry the live subscriber count.
     """
     root = _root(db)
     check_auth(root, authorization, x_aethviondb_key or key)
 
     from aethviondb import events
+    resume = last_event_id or request.headers.get("last-event-id")
+    try:
+        resume_id = int(resume) if resume is not None else None
+    except ValueError:
+        resume_id = None
+
     queue, unsubscribe = events.subscribe(db)
 
     async def stream():
         try:
-            # Open the stream and tell the client how often we heartbeat.
             yield "retry: 3000\n: connected\n\n"
+            # Replay anything missed since the client's last seen id.
+            if resume_id is not None:
+                for ev in events.backlog(db, resume_id):
+                    yield f"id: {ev['_seq']}\ndata: {json.dumps(ev)}\n\n"
+            # Announce presence (current subscriber count) to everyone.
+            events.publish(db, {"action": "presence", "count": events.subscriber_count(db)}, record=False)
             while True:
                 try:
                     ev = await asyncio.wait_for(queue.get(), timeout=20.0)
-                    yield f"data: {json.dumps(ev)}\n\n"
+                    sid = f"id: {ev['_seq']}\n" if "_seq" in ev else ""
+                    yield f"{sid}data: {json.dumps(ev)}\n\n"
                 except asyncio.TimeoutError:
                     yield ": ping\n\n"          # heartbeat keeps proxies/clients alive
                 if await request.is_disconnected():
                     break
         finally:
             unsubscribe()
+            events.publish(db, {"action": "presence", "count": events.subscriber_count(db)}, record=False)
 
     return StreamingResponse(
         stream(),
