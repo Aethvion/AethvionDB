@@ -129,6 +129,21 @@ def test_batch_operations(client, db_name):
     assert d["succeeded"] == 2 and d["failed"] == 0
 
 
+def test_batch_deferred_index_persists_correctly(client, db_name):
+    # A batch saves the name index once at the end (P1-10). Verify the index is
+    # correct afterward: every created entity dedups on a follow-up upsert.
+    n = 60
+    ops = {"operations": [{"op": "upsert", "data": {"name": f"B{i}", "type": "concept"}}
+                          for i in range(n)]}
+    d = _data(client.post(f"/api/v1/{db_name}/raw/entities/batch", json=ops))
+    assert d["succeeded"] == n
+    assert _data(client.get(f"/api/v1/{db_name}/raw/entities"))["total"] == n
+    # follow-up upserts must all resolve to existing entities (index was saved)
+    for i in (0, n // 2, n - 1):
+        r = _upsert(client, db_name, name=f"B{i}", type="concept")
+        assert r["action"] == "updated"
+
+
 # ── Snapshot export → import round-trip ──
 
 def test_snapshot_export_then_import(client, db_name):

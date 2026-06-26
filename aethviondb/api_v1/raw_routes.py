@@ -625,61 +625,74 @@ async def batch_operations(
     check_auth(root, authorization, x_aethviondb_key)
     _ensure(db)
 
-    w   = _writer(db)
-    results: list[dict] = []
-    errors:  list[dict] = []
+    w = _writer(db)
 
-    for i, op in enumerate(req.operations):
-        try:
-            if op.op == "upsert":
-                data = op.data or {}
-                name = data.get("name") or ""
-                if not name:
-                    raise ValueError("upsert requires 'name'")
-                existing = w.get_by_name(name)
-                if existing:
-                    entity = w.update(existing["id"], data)
-                    results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "updated"})
-                    _emit(db, "updated", entity, x_actor)
-                else:
-                    entity, _ = w.create(
-                        name=name,
-                        entity_type=data.get("type", "other"),
-                        source=data.get("source", "api"),
-                        sections_override={"core": {
-                            "summary": data.get("summary", ""),
-                            "tags":    data.get("tags", []),
-                        }},
-                    )
-                    results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "created"})
-                    _emit(db, "created", entity, x_actor)
+    def _run() -> tuple[list, list, list]:
+        """Apply all ops off the event loop, deferring the name-index save to one
+        write for the whole batch (instead of one per create). Change events are
+        collected and published by the caller (on the loop)."""
+        results: list[dict] = []
+        errors:  list[dict] = []
+        emits:   list[tuple] = []
+        with w._index.deferred_save():
+            for i, op in enumerate(req.operations):
+                try:
+                    if op.op == "upsert":
+                        data = op.data or {}
+                        name = data.get("name") or ""
+                        if not name:
+                            raise ValueError("upsert requires 'name'")
+                        existing = w.get_by_name(name)
+                        if existing:
+                            entity = w.update(existing["id"], data)
+                            results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "updated"})
+                            emits.append(("updated", entity))
+                        else:
+                            entity, _ = w.create(
+                                name=name,
+                                entity_type=data.get("type", "other"),
+                                source=data.get("source", "api"),
+                                sections_override={"core": {
+                                    "summary": data.get("summary", ""),
+                                    "tags":    data.get("tags", []),
+                                }},
+                            )
+                            results.append({"index": i, "op": "upsert", "id": entity["id"], "action": "created"})
+                            emits.append(("created", entity))
 
-            elif op.op == "delete":
-                if not op.id:
-                    raise ValueError("delete requires 'id'")
-                existing = w.get(op.id)
-                if not existing:
-                    raise ValueError(f"Entity '{op.id}' not found")
-                w.delete(op.id, soft=not op.hard)
-                results.append({"index": i, "op": "delete", "id": op.id})
-                _emit(db, "deleted", existing, x_actor)
+                    elif op.op == "delete":
+                        if not op.id:
+                            raise ValueError("delete requires 'id'")
+                        existing = w.get(op.id)
+                        if not existing:
+                            raise ValueError(f"Entity '{op.id}' not found")
+                        w.delete(op.id, soft=not op.hard)
+                        results.append({"index": i, "op": "delete", "id": op.id})
+                        emits.append(("deleted", existing))
 
-            elif op.op == "patch":
-                if not op.id:
-                    raise ValueError("patch requires 'id'")
-                if not w.exists(op.id):
-                    raise ValueError(f"Entity '{op.id}' not found")
-                entity = w.update(op.id, op.mutations or {})
-                results.append({"index": i, "op": "patch", "id": entity["id"]})
-                _emit(db, "updated", entity, x_actor)
+                    elif op.op == "patch":
+                        if not op.id:
+                            raise ValueError("patch requires 'id'")
+                        if not w.exists(op.id):
+                            raise ValueError(f"Entity '{op.id}' not found")
+                        entity = w.update(op.id, op.mutations or {})
+                        results.append({"index": i, "op": "patch", "id": entity["id"]})
+                        emits.append(("updated", entity))
 
-            else:
-                raise ValueError(f"Unknown op {op.op!r}. Valid: upsert, delete, patch")
+                    else:
+                        raise ValueError(f"Unknown op {op.op!r}. Valid: upsert, delete, patch")
 
-        except Exception as exc:
-            errors.append({"index": i, "op": op.op, "error": str(exc)})
-            if req.atomic:
-                raise HTTPException(500, f"Batch aborted at op[{i}]: {exc}")
+                except Exception as exc:
+                    errors.append({"index": i, "op": op.op, "error": str(exc)})
+                    if req.atomic:
+                        raise HTTPException(500, f"Batch aborted at op[{i}]: {exc}")
+        return results, errors, emits
+
+    results, errors, emits = await asyncio.to_thread(_run)
+
+    # Publish change events on the event loop (the bus queues are loop-bound).
+    for action, entity in emits:
+        _emit(db, action, entity, x_actor)
 
     return envelope(
         {

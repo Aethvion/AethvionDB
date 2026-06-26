@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -62,6 +63,7 @@ class NameIndex:
         self._flock = FileLock(str(self._path) + ".lock")
         self._data: dict[str, str] = {}
         self._loaded = False
+        self._defer = False   # when True, per-call save/reload are suppressed (batch mode)
 
     # Loading
 
@@ -84,6 +86,8 @@ class NameIndex:
 
     def _save(self) -> None:
         """Atomically write the index to disk. Must be called under _lock."""
+        if self._defer:           # batch mode: one save happens on context exit
+            return
         atomic_json_write(self._path, self._data, sort_keys=True)
 
     def _reload_locked(self) -> None:
@@ -92,6 +96,8 @@ class NameIndex:
         Used inside the cross-process critical section so a mutation sees writes
         another process made since this instance last loaded.
         """
+        if self._defer:           # batch mode: don't discard accumulated changes
+            return
         if self._path.exists():
             try:
                 self._data = json.loads(self._path.read_text(encoding="utf-8"))
@@ -167,6 +173,29 @@ class NameIndex:
                         self._data[key] = entity_id
                 self._save()
                 return len(self._data)
+
+    @contextmanager
+    def deferred_save(self):
+        """Suppress per-call disk saves for a batch, writing the index once at the end.
+
+        Turns O(n) full-file index writes into one. Does **not** hold the
+        cross-process lock across the batch — that would invert lock order with
+        the entity write path (which takes the write lock then the index lock)
+        and could deadlock. Instead it syncs once up front, accumulates changes
+        in memory, and writes once on exit. Use on a per-request NameIndex
+        instance (the API builds one per request).
+        """
+        with self._flock:
+            with self._lock:
+                self._reload_locked()     # sync once up front (defer not set yet)
+        self._defer = True
+        try:
+            yield
+        finally:
+            self._defer = False
+            with self._flock:
+                with self._lock:
+                    self._save()          # single write for the whole batch
 
     def register_aliases(self, entity_id: str, aliases: list[str]) -> None:
         """Register multiple alias names for the same entity ID."""
