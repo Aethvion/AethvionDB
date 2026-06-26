@@ -234,6 +234,36 @@ def test_validate_surfaces_soft_deleted(client, db_name):
     assert any(x["id"] == eid for x in d["deleted_entities"])
 
 
+# ── Database management (P2-16) ──
+
+def _db_names(client):
+    return {d["name"] for d in _data(client.get("/api/v1/"))["databases"]}
+
+
+def test_create_delete_database(client, db_name):
+    _data(client.post("/api/v1/databases", json={"name": db_name}))
+    assert db_name in _db_names(client)
+    # duplicate create -> 409
+    assert client.post("/api/v1/databases", json={"name": db_name}).status_code == 409
+    _data(client.delete(f"/api/v1/databases/{db_name}"))
+    assert db_name not in _db_names(client)
+    # delete missing -> 404
+    assert client.delete(f"/api/v1/databases/{db_name}").status_code == 404
+
+
+def test_rename_database(client, db_name):
+    _upsert(client, db_name, name="Keeper")          # creates the db
+    new = db_name + "_renamed"
+    _data(client.post(f"/api/v1/databases/{db_name}/rename", json={"new_name": new}))
+    names = _db_names(client)
+    assert new in names and db_name not in names
+    assert _data(client.get(f"/api/v1/{new}/raw/entities"))["total"] == 1   # data moved
+
+
+def test_invalid_db_name_create_rejected(client):
+    assert client.post("/api/v1/databases", json={"name": "bad name!"}).status_code == 400
+
+
 # ── Reindex / warm-up (P1-9) ──
 
 def test_reindex_rebuilds_snapshot_and_index(client, db_name):

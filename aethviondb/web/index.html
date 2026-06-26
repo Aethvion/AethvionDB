@@ -1001,10 +1001,14 @@ async function loadSettings(){
   $("dbRows").innerHTML=dbs.map(d=>`<tr><td><b>${esc(d.name)}</b>${d.name===db()?' <span class="badge">active</span>':""}</td><td>${d.entity_count}</td>
     <td style="white-space:nowrap"><button class="btn sm" data-db="${esc(d.name)}">use</button>
       <button class="btn sm" data-exp="${esc(d.name)}" title="Export as .snapshot">⤓ export</button>
-      <button class="btn sm" data-reix="${esc(d.name)}" title="Rebuild snapshot + name index from disk">↻ rebuild</button></td></tr>`).join("");
+      <button class="btn sm" data-reix="${esc(d.name)}" title="Rebuild snapshot + name index from disk">↻ rebuild</button>
+      <button class="btn sm" data-ren="${esc(d.name)}" title="Rename database">✎ rename</button>
+      <button class="btn sm danger" data-del="${esc(d.name)}" title="Delete database (permanent)">🗑</button></td></tr>`).join("");
   $("dbRows").querySelectorAll("button[data-db]").forEach(b=>b.addEventListener("click",()=>{$("dbSel").value=b.dataset.db;loadEntities();loadSettings();}));
   $("dbRows").querySelectorAll("button[data-exp]").forEach(b=>b.addEventListener("click",()=>exportDb(b.dataset.exp)));
   $("dbRows").querySelectorAll("button[data-reix]").forEach(b=>b.addEventListener("click",()=>reindexDb(b.dataset.reix)));
+  $("dbRows").querySelectorAll("button[data-ren]").forEach(b=>b.addEventListener("click",()=>renameDb(b.dataset.ren)));
+  $("dbRows").querySelectorAll("button[data-del]").forEach(b=>b.addEventListener("click",()=>deleteDb(b.dataset.del)));
   // active key
   $("activeKey").value=getKey();
   // keys list
@@ -1168,6 +1172,23 @@ async function reindexDb(name){
     if(name===db()){explorerRows=[];explorerDb=null;loadEntities();}
   }catch(e){toast(e.message,"err");}
 }
+async function renameDb(name){
+  const nn=prompt(`Rename database "${name}" to:`,name); if(!nn||nn===name)return;
+  try{await api(`/databases/${encodeURIComponent(name)}/rename`,{method:"POST",body:{new_name:nn}});
+    toast(`Renamed to "${nn}"`,"ok");const wasActive=name===db();
+    await loadDatabases();if(wasActive){$("dbSel").value=nn;explorerRows=[];explorerDb=null;loadEntities();}
+    loadSettings();}
+  catch(e){toast(e.message,"err");}
+}
+async function deleteDb(name){
+  if(!confirm(`Permanently delete database "${name}" and ALL its data?\n\nThis cannot be undone.`))return;
+  try{await api(`/databases/${encodeURIComponent(name)}`,{method:"DELETE"});
+    toast(`Deleted "${name}"`,"ok");const wasActive=name===db();
+    await loadDatabases();
+    if(wasActive){const sel=$("dbSel");if(sel.options.length){sel.selectedIndex=0;explorerRows=[];explorerDb=null;loadEntities();ensureEvents();}}
+    loadSettings();}
+  catch(e){toast(e.message,"err");}
+}
 async function impPost(path,body){
   const r=await fetch("/api/import"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:body!==undefined?JSON.stringify(body):undefined});
   const txt=await r.text();let j={};try{j=JSON.parse(txt);}catch{}
@@ -1275,9 +1296,12 @@ $("bakeRefresh").addEventListener("click",loadBakes);
 $("bakeNew").addEventListener("click",()=>$("bakeDlg").showModal());
 $("bCancel").addEventListener("click",()=>$("bakeDlg").close());
 $("bGo").addEventListener("click",startBake);
-$("newDbBtn").addEventListener("click",()=>{const n=$("newDbName").value.trim();if(!n)return;
-  const o=document.createElement("option");o.value=n;o.textContent=n+" · 0";$("dbSel").appendChild(o);$("dbSel").value=n;
-  toast(`Switched to "${n}" — create an entity or import to persist it`,"ok");$("newDbName").value="";loadSettings();});
+$("newDbBtn").addEventListener("click",async()=>{const n=$("newDbName").value.trim();if(!n)return;
+  try{await api(`/databases`,{method:"POST",body:{name:n}});
+    $("newDbName").value="";await loadDatabases();$("dbSel").value=n;
+    explorerRows=[];explorerDb=null;loadEntities();ensureEvents();loadSettings();
+    toast(`Created database "${n}"`,"ok");}
+  catch(e){toast(e.message,"err");}});
 $("activeKey").addEventListener("change",()=>{localStorage.setItem("adb_key",$("activeKey").value.trim());toast("Active key updated","ok");});
 $("newKeyBtn").addEventListener("click",genKey);
 $("vModel").addEventListener("change",updateVModelHint);

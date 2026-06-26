@@ -14,14 +14,20 @@ URL layout once mounted:
 from __future__ import annotations
 
 import importlib.util
+import re
+import shutil
+import time
+from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from aethviondb._utils import get_logger
 
 from .raw_routes   import router as raw_router
 from .baked_routes import router as baked_router
 from .response import envelope
+
+_SAFE_DB = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 
 logger = get_logger(__name__)
 
@@ -192,3 +198,76 @@ async def put_settings(patch: SettingsPatch):
 
     write_settings(body)
     return await get_settings()
+
+
+# Database management (create / delete / rename) — operates on folders under the
+# data dir, with a safety guard so it never touches a path outside it.
+
+class DbCreate(BaseModel):
+    name: str
+
+
+class DbRename(BaseModel):
+    new_name: str
+
+
+def _data_dir() -> Path:
+    from aethviondb.config import DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return DATA_DIR
+
+
+def _safe_db_root(name: str) -> Path:
+    """Resolve a managed database folder, refusing names that escape the data dir."""
+    if not _SAFE_DB.match(name):
+        raise HTTPException(400, f"Invalid database name {name!r}.")
+    root = (_data_dir() / name).resolve()
+    if root.parent != _data_dir().resolve():
+        raise HTTPException(400, "Refusing to manage a database outside the data directory.")
+    return root
+
+
+@router.post("/databases")
+async def create_database(req: DbCreate):
+    """Create an empty database (folder under the data dir)."""
+    t = time.perf_counter()
+    root = _safe_db_root(req.name)
+    if (root / "entities").exists():
+        raise HTTPException(409, f"Database {req.name!r} already exists.")
+    (root / "entities").mkdir(parents=True, exist_ok=True)
+    (root / "chunks").mkdir(parents=True, exist_ok=True)
+    return envelope({"name": req.name, "created": True}, took_start=t)
+
+
+@router.delete("/databases/{name}")
+async def delete_database(name: str):
+    """Permanently delete a database and all its data."""
+    t = time.perf_counter()
+    root = _safe_db_root(name)
+    if not root.exists():
+        raise HTTPException(404, f"Database {name!r} not found.")
+    from aethviondb import snapshot
+    snapshot.invalidate(root)                     # drop caches before removing files
+    shutil.rmtree(root, ignore_errors=True)
+    try:
+        from aethviondb.db_registry import remove_db
+        remove_db(name)
+    except Exception:
+        pass
+    return envelope({"deleted": name}, took_start=t)
+
+
+@router.post("/databases/{name}/rename")
+async def rename_database(name: str, req: DbRename):
+    """Rename a database (moves its folder)."""
+    t = time.perf_counter()
+    src = _safe_db_root(name)
+    dst = _safe_db_root(req.new_name)
+    if not src.exists():
+        raise HTTPException(404, f"Database {name!r} not found.")
+    if dst.exists():
+        raise HTTPException(409, f"Database {req.new_name!r} already exists.")
+    from aethviondb import snapshot
+    snapshot.invalidate(src)
+    shutil.move(str(src), str(dst))
+    return envelope({"renamed": True, "old_name": name, "new_name": req.new_name}, took_start=t)
