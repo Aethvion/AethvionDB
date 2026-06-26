@@ -19,6 +19,7 @@ from .entity_writer import EntityWriter, VersionConflictError
 from .entity_schema import SCHEMA_VERSION, migrate
 from .validator import Validator
 from .distiller import ContentDistiller
+from .client import AethvionClient, AethvionError
 
 __version__ = "0.1.0"
 __all__ = [
@@ -29,5 +30,7 @@ __all__ = [
     "migrate",
     "Validator",
     "ContentDistiller",
+    "AethvionClient",
+    "AethvionError",
     "__version__",
 ]

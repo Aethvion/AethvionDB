@@ -4,9 +4,35 @@ AethvionDB is built to be a **shared brain** that many agents read and write at
 once. Agents talk to it over the HTTP API; every write is broadcast on a live
 change feed so other agents (and the dashboard) see it immediately.
 
-## How an agent connects
+## The built-in client (recommended)
 
-Any HTTP client works. An agent should:
+`AethvionClient` ships with the package — dependency-free (standard library), so
+an agent can read, write, and watch the brain in a few lines:
+
+```python
+from aethviondb import AethvionClient
+
+db = AethvionClient(db="shared", actor="coding-agent")   # base_url defaults to localhost:7475
+
+db.upsert("PaymentService", type="service", summary="Handles checkout.",
+          relations=[{"kind": "depends_on", "target_name": "PostgresDB"}])
+
+for hit in db.search("payment"):
+    print(hit["name"])
+
+graph = db.traverse(db.search("PaymentService")[0]["id"], depth=2)
+
+for ev in db.watch():            # live feed — auto-reconnects, replays missed events
+    print(ev["actor"], ev["action"], ev["name"])
+```
+
+Key methods: `upsert`, `get`, `update(…, expected_version=…)`, `delete`,
+`entities`, `search`, `traverse`, `neighbors`, `path`, `validate`, `reindex`,
+`backup`, and `watch()`. Errors raise `AethvionError` (with `.status` / `.code`).
+
+## Connecting directly (any HTTP client)
+
+If you'd rather use raw HTTP, an agent should:
 
 1. Send `X-Actor: <agent-name>` on writes, so its changes are attributed.
 2. Send `X-API-Key: <key>` if the database requires auth.
