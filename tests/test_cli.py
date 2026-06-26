@@ -61,3 +61,14 @@ def test_restore_missing_returns_1(db_name, capsys):
     cli.main(["init", db_name])
     assert cli.main(["restore", db_name, "no_such_backup"]) == 1
     assert "Error" in capsys.readouterr().out
+
+
+def test_reindex(db_name, capsys):
+    cli.main(["init", db_name])
+    w = _writer(db_name)
+    w.create("One", entity_type="concept")
+    w.create("Two", entity_type="concept")
+    assert cli.main(["reindex", db_name]) == 0
+    out = capsys.readouterr().out
+    assert "2 entities" in out
+    assert (resolve_db_root(db_name) / "AethvionDB.SNAPSHOT").exists()

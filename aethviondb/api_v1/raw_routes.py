@@ -1170,6 +1170,24 @@ async def validate_database(
     return envelope(report, db=db, took_start=t)
 
 
+@router.post("/{db}/raw/reindex")
+async def reindex_database(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Rebuild derived caches (snapshot + name index) from the entity files.
+
+    Materializes the on-disk snapshot so the next read is fast, and repairs a
+    stale/missing index. Useful after bulk external writes."""
+    t = time.perf_counter()
+    root = _root(db)
+    check_auth(root, authorization, x_aethviondb_key)
+    w = _writer(db)
+    result = await asyncio.to_thread(w.reindex)
+    return envelope(result, db=db, took_start=t)
+
+
 # Graph
 
 def _bfs(writer, start_id: str, depth: int, direction: str,

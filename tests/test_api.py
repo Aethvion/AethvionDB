@@ -219,6 +219,26 @@ def test_validate_surfaces_soft_deleted(client, db_name):
     assert any(x["id"] == eid for x in d["deleted_entities"])
 
 
+# ── Reindex / warm-up (P1-9) ──
+
+def test_reindex_rebuilds_snapshot_and_index(client, db_name):
+    from aethviondb.config import DATA_DIR
+    for i in range(4):
+        _upsert(client, db_name, name=f"R{i}", type="concept")
+    root = DATA_DIR / db_name
+    # Delete the derived caches (simulate a cold / corrupted state).
+    (root / "AethvionDB.SNAPSHOT").unlink(missing_ok=True)
+    (root / "name_index.json").unlink(missing_ok=True)
+
+    d = _data(client.post(f"/api/v1/{db_name}/raw/reindex"))
+    assert d["entities"] == 4 and d["index_entries"] == 4
+    assert (root / "AethvionDB.SNAPSHOT").exists()
+    assert (root / "name_index.json").exists()
+    # index rebuilt → dedup works again (upsert finds the existing entity)
+    again = _upsert(client, db_name, name="R0", type="concept")
+    assert again["action"] == "updated"
+
+
 # ── API hardening (P0-5) ──
 
 def test_error_envelope_on_404(client, db_name):

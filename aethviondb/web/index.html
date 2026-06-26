@@ -999,9 +999,11 @@ async function loadSettings(){
   const dbs=window._dbs||[];
   $("dbRows").innerHTML=dbs.map(d=>`<tr><td><b>${esc(d.name)}</b>${d.name===db()?' <span class="badge">active</span>':""}</td><td>${d.entity_count}</td>
     <td style="white-space:nowrap"><button class="btn sm" data-db="${esc(d.name)}">use</button>
-      <button class="btn sm" data-exp="${esc(d.name)}" title="Export as .snapshot">⤓ export</button></td></tr>`).join("");
+      <button class="btn sm" data-exp="${esc(d.name)}" title="Export as .snapshot">⤓ export</button>
+      <button class="btn sm" data-reix="${esc(d.name)}" title="Rebuild snapshot + name index from disk">↻ rebuild</button></td></tr>`).join("");
   $("dbRows").querySelectorAll("button[data-db]").forEach(b=>b.addEventListener("click",()=>{$("dbSel").value=b.dataset.db;loadEntities();loadSettings();}));
   $("dbRows").querySelectorAll("button[data-exp]").forEach(b=>b.addEventListener("click",()=>exportDb(b.dataset.exp)));
+  $("dbRows").querySelectorAll("button[data-reix]").forEach(b=>b.addEventListener("click",()=>reindexDb(b.dataset.reix)));
   // active key
   $("activeKey").value=getKey();
   // keys list
@@ -1156,6 +1158,13 @@ async function exportDb(name){
     const blob=await r.blob();const u=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=u;a.download=name+".snapshot";a.click();URL.revokeObjectURL(u);
     toast(`Exported ${name}.snapshot`,"ok");
+  }catch(e){toast(e.message,"err");}
+}
+async function reindexDb(name){
+  try{
+    const d=await api(`/${encodeURIComponent(name)}/raw/reindex`,{method:"POST"});
+    toast(`Rebuilt ${name}: ${d.entities} entities, ${d.index_entries} index entries`,"ok");
+    if(name===db()){explorerRows=[];explorerDb=null;loadEntities();}
   }catch(e){toast(e.message,"err");}
 }
 async function impPost(path,body){

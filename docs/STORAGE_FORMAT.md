@@ -116,8 +116,12 @@ running.
 
 ## Rebuilding derived state
 
-If the caches are ever stale or deleted:
-- `name_index.json` — rebuilt by re-registering every entity's name (the snapshot
-  importer does this via `NameIndex.register_many`).
-- `AethvionDB.SNAPSHOT` / `.GEN` — rebuilt on next load from the entity files, or
-  explicitly via `snapshot.build(db_root, entities)`.
+The entity files are the source of truth; the caches can always be regenerated:
+
+- **On demand** — `POST /{db}/raw/reindex`, `aethviondb reindex <db>`, or
+  `EntityWriter.reindex()` rebuilds both the snapshot and the name index from the
+  entity files. Run it after bulk external writes (so the first browse is fast)
+  or to repair a stale/missing cache.
+- **Automatically** — `AethvionDB.SNAPSHOT` / `.GEN` are rebuilt on the next read
+  if missing or stale; the snapshot importer rebuilds the name index via
+  `NameIndex.register_many`.

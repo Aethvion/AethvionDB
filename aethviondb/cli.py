@@ -101,6 +101,12 @@ def cmd_validate(args) -> int:
     return 1 if summary["with_errors"] else 0   # nonzero exit for CI gating
 
 
+def cmd_reindex(args) -> int:
+    res = _writer(args.db).reindex()
+    print(f"Reindexed {args.db}: {res['entities']} entities, {res['index_entries']} index entries")
+    return 0
+
+
 def cmd_version(args) -> int:
     print(f"aethviondb {__version__}")
     return 0
@@ -141,6 +147,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("db")
     s.add_argument("--json", action="store_true")
     s.set_defaults(func=cmd_validate)
+
+    s = sub.add_parser("reindex", help="rebuild snapshot + name index from the entity files")
+    s.add_argument("db")
+    s.set_defaults(func=cmd_reindex)
 
     s = sub.add_parser("version", help="print the version")
     s.set_defaults(func=cmd_version)

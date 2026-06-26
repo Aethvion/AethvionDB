@@ -389,6 +389,36 @@ class EntityWriter:
                 logger.warning(f"[EntityWriter] Could not read {path}: {exc}")
         return results
 
+    def reindex(self) -> dict[str, int]:
+        """Rebuild derived state (snapshot + name index) from the entity files.
+
+        The entity files are the source of truth; this regenerates the warm
+        caches so a fresh process reads one snapshot file instead of N entity
+        files, and the name index reflects exactly what's on disk. Use after bulk
+        external writes, or to repair a stale/missing index or snapshot.
+        """
+        entities = self._raw_list_all()
+
+        # Rebuild the name index from names + aliases.
+        mapping: dict[str, str] = {}
+        for e in entities:
+            eid = e.get("id")
+            if not eid:
+                continue
+            if e.get("name"):
+                mapping[e["name"]] = eid
+            for alias in (e.get("sections") or {}).get("core", {}).get("aliases", []) or []:
+                mapping.setdefault(alias, eid)
+        self._index.rebuild(mapping)
+
+        # Rebuild the on-disk snapshot from disk truth.
+        _snapshot.invalidate(self._dir.parent)
+        _snapshot.build(self._dir.parent, entities)
+
+        logger.info(f"[EntityWriter] Reindexed {self._dir.parent.name}: "
+                    f"{len(entities)} entities, {len(mapping)} index entries")
+        return {"entities": len(entities), "index_entries": len(mapping)}
+
     def list_all(
         self,
         include_deleted: bool = False,

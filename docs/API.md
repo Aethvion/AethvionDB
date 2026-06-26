@@ -89,6 +89,8 @@ recorded on the change event and falls back to the entity's `source`.
 |---|---|---|
 | GET | `/{db}/raw/snapshot/download` | Export the whole db as a portable `<db>.snapshot` (JSON array). |
 | GET | `/{db}/events` | **Server-Sent Events** change feed. `?key=` for auth. Each event: `{action, id, name, entity_type, kind, version, actor, ts}`. |
+| POST | `/{db}/raw/reindex` | Rebuild snapshot + name index from the entity files (warm-up / repair). |
+| GET | `/{db}/raw/validate` | Consistency report (errors, duplicates, orphan stubs, warnings, soft-deleted). |
 | GET/POST | `/{db}/backups` | List / create (`{label}`) point-in-time backups. |
 | POST | `/{db}/backups/{id}/restore` | Restore (replaces contents; cache invalidated). |
 | DELETE | `/{db}/backups/{id}` | Delete a backup. |

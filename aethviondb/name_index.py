@@ -151,6 +151,23 @@ class NameIndex:
                 self._save()
         return len(mapping)
 
+    def rebuild(self, mapping: dict[str, str]) -> int:
+        """Replace the entire index with *mapping* (name→id) in one atomic save.
+
+        Used by reindex/repair to regenerate the index from the entity files,
+        dropping any stale entries. Returns the resulting entry count.
+        """
+        self._ensure_loaded()
+        with self._flock:
+            with self._lock:
+                self._data = {}
+                for name, entity_id in mapping.items():
+                    key = _normalize(name)
+                    if key and entity_id:
+                        self._data[key] = entity_id
+                self._save()
+                return len(self._data)
+
     def register_aliases(self, entity_id: str, aliases: list[str]) -> None:
         """Register multiple alias names for the same entity ID."""
         self._ensure_loaded()
