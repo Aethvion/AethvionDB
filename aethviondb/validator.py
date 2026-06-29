@@ -406,6 +406,33 @@ def _check_type_consistency(entity: dict[str, Any]) -> list[Issue]:
     return issues
 
 
+def _check_kind_schema(entity: dict[str, Any], kind_defs: dict[str, dict]) -> list[Issue]:
+    """Ontology enforcement: warn when an active entity is missing a property its
+    kind marks as required. Suggestions (default_properties/common_relations) are
+    not enforced — only ``required_properties`` is, so enforcement is opt-in."""
+    issues: list[Issue] = []
+    if entity.get("status") != "active":
+        return issues
+    kinds = entity.get("kind")
+    if not kinds:
+        return issues
+    if isinstance(kinds, str):
+        kinds = [kinds]
+    props = entity.get("sections", {}).get("properties", {}) or {}
+    for kname in kinds:
+        kdef = kind_defs.get(kname)
+        if not kdef:
+            continue
+        for pkey in kdef.get("required_properties", []) or []:
+            if not props.get(pkey):
+                issues.append(Issue(
+                    Severity.WARNING, "kind_schema",
+                    f"kind {kname!r} requires property {pkey!r} (missing or empty)",
+                    entity["id"], f"sections.properties.{pkey}",
+                ))
+    return issues
+
+
 # Cross-entity duplicate detection
 
 def _entity_score(entity: dict[str, Any]) -> int:
@@ -576,6 +603,18 @@ class Validator:
 
     def __init__(self, writer: Optional[EntityWriter] = None) -> None:
         self._writer = writer or EntityWriter()
+        self._kind_defs: Optional[dict[str, dict]] = None
+
+    def _kinds(self) -> dict[str, dict]:
+        """Load the per-database kind registry once (name → definition)."""
+        if self._kind_defs is None:
+            try:
+                from .kind_registry import KindRegistry
+                reg = KindRegistry(self._writer._dir.parent)
+                self._kind_defs = {k["name"]: k for k in reg.list_all()}
+            except Exception:
+                self._kind_defs = {}
+        return self._kind_defs
 
     def validate(self, entity_id: str) -> ValidationResult:
         """Run all checks on a single entity."""
@@ -595,6 +634,7 @@ class Validator:
         result.issues.extend(_check_reference_integrity(entity, self._writer))
         result.issues.extend(_check_containment_cycle(entity, self._writer))
         result.issues.extend(_check_type_consistency(entity))
+        result.issues.extend(_check_kind_schema(entity, self._kinds()))
 
         if result.issues:
             logger.debug(
@@ -630,6 +670,7 @@ class Validator:
         "status_mismatch":     "Status-summary mismatches",
         "not_found":           "Missing entity files",
         "duplicate_entity":    "Duplicate names / aliases",
+        "kind_schema":         "Missing required properties for kind",
     }
 
     def summary(self) -> dict[str, Any]:

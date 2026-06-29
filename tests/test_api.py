@@ -234,6 +234,41 @@ def test_validate_surfaces_soft_deleted(client, db_name):
     assert any(x["id"] == eid for x in d["deleted_entities"])
 
 
+# ── Kinds / ontology enforcement (P2-14) ──
+
+def test_kinds_register_list_delete(client, db_name):
+    _ensure = _upsert(client, db_name, name="seed")          # create db
+    _data(client.post(f"/api/v1/{db_name}/raw/kinds",
+                      json={"name": "software.module", "required_properties": ["language"]}))
+    kinds = _data(client.get(f"/api/v1/{db_name}/raw/kinds"))["kinds"]
+    assert any(k["name"] == "software.module" and k["required_properties"] == ["language"] for k in kinds)
+    _data(client.delete(f"/api/v1/{db_name}/raw/kinds/software.module"))
+    assert client.delete(f"/api/v1/{db_name}/raw/kinds/software.module").status_code == 404
+
+
+def test_init_software_kinds(client, db_name):
+    _upsert(client, db_name, name="seed")
+    d = _data(client.post(f"/api/v1/{db_name}/raw/kinds/init-software"))
+    assert d["added"] >= 1
+    names = {k["name"] for k in d["kinds"]}
+    assert "software.module" in names and "software.function" in names
+
+
+def test_kind_required_property_enforced_in_validate(client, db_name):
+    # Define a kind that requires 'language', then create an entity missing it.
+    _data(client.post(f"/api/v1/{db_name}/raw/kinds",
+                      json={"name": "software.module", "required_properties": ["language"]}))
+    _upsert(client, db_name, name="NoLang", kind="software.module")   # no language property
+    report = _data(client.get(f"/api/v1/{db_name}/raw/validate"))
+    checks = {w["check"] for w in report["warning_summary"]}
+    assert "kind_schema" in checks
+    # satisfying the requirement clears the warning
+    _upsert(client, db_name, name="NoLang", kind="software.module",
+            properties={"language": "python"})
+    report2 = _data(client.get(f"/api/v1/{db_name}/raw/validate"))
+    assert "kind_schema" not in {w["check"] for w in report2["warning_summary"]}
+
+
 # ── Database management (P2-16) ──
 
 def _db_names(client):

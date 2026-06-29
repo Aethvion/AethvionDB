@@ -187,11 +187,16 @@ class KindRegistry:
         color: str = "",
         default_properties: Optional[dict[str, str]] = None,
         common_relations: Optional[list[str]] = None,
+        required_properties: Optional[list[str]] = None,
         auto_registered: bool = False,
     ) -> dict[str, Any]:
         """
         Register or fully replace a kind definition.
         Returns the stored definition.
+
+        ``default_properties`` / ``common_relations`` are suggestions (for UI and
+        autocomplete). ``required_properties`` is the opt-in *enforcement* surface:
+        the validator warns when an active entity of this kind lacks one of them.
         """
         kind_def: dict[str, Any] = {
             "name": name,
@@ -200,6 +205,7 @@ class KindRegistry:
             "color": color,
             "default_properties": default_properties or {},
             "common_relations": common_relations or [],
+            "required_properties": required_properties or [],
             "auto_registered": auto_registered,
             "created_at": _now_iso(),
         }
@@ -235,7 +241,8 @@ class KindRegistry:
         Returns the updated definition, or None if the kind doesn't exist.
         Allowed keys: description, icon, color, default_properties, common_relations.
         """
-        allowed = {"description", "icon", "color", "default_properties", "common_relations"}
+        allowed = {"description", "icon", "color", "default_properties",
+                   "common_relations", "required_properties"}
         with self._lock:
             existing = self._data["kinds"].get(name)
             if existing is None:

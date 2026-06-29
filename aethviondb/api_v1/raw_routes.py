@@ -1217,6 +1217,86 @@ async def reindex_database(
     return envelope(result, db=db, took_start=t)
 
 
+# Kind registry — the per-type ontology (enforced softly by the validator).
+
+class KindDef(BaseModel):
+    name:                str
+    description:         str = ""
+    icon:                str = ""
+    color:               str = ""
+    default_properties:  dict[str, str] = {}
+    common_relations:    list[str] = []
+    required_properties: list[str] = []
+
+
+def _kind_registry(db: str):
+    from aethviondb.kind_registry import KindRegistry
+    return KindRegistry(_root(db))
+
+
+@router.get("/{db}/raw/kinds")
+async def list_kinds(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """List registered kinds (the ontology) and summary stats."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    reg = _kind_registry(db)
+    return envelope({"kinds": reg.list_all(), "stats": reg.stats()}, db=db, took_start=t)
+
+
+@router.post("/{db}/raw/kinds")
+async def register_kind(
+    db:  str,
+    req: KindDef,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Define or replace a kind. ``required_properties`` is the enforcement surface
+    — the validator warns when an active entity of this kind lacks one."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    _ensure(db)
+    kd = _kind_registry(db).register(
+        req.name, description=req.description, icon=req.icon, color=req.color,
+        default_properties=req.default_properties, common_relations=req.common_relations,
+        required_properties=req.required_properties,
+    )
+    return envelope(kd, db=db, took_start=t)
+
+
+@router.post("/{db}/raw/kinds/init-software")
+async def init_software_kinds_endpoint(
+    db: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Populate the built-in software.* kinds (idempotent)."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    _ensure(db)
+    reg = _kind_registry(db)
+    added = reg.init_software_kinds()
+    return envelope({"added": added, "kinds": reg.list_all()}, db=db, took_start=t)
+
+
+@router.delete("/{db}/raw/kinds/{name}")
+async def delete_kind(
+    db:   str,
+    name: str,
+    authorization:    Optional[str] = Header(None),
+    x_aethviondb_key: Optional[str] = Header(None),
+):
+    """Remove a kind from the ontology."""
+    t = time.perf_counter()
+    check_auth(_root(db), authorization, x_aethviondb_key)
+    if not _kind_registry(db).delete(name):
+        raise HTTPException(404, f"Kind {name!r} not found.")
+    return envelope({"deleted": name}, db=db, took_start=t)
+
+
 # Graph
 
 def _bfs(writer, start_id: str, depth: int, direction: str,

@@ -389,6 +389,7 @@
               <div class="setcat" data-cat="vectorize">✦ Vectorization</div>
               <div class="setcat" data-cat="databases">▦ Databases</div>
               <div class="setcat" data-cat="backups">💾 Backups</div>
+              <div class="setcat" data-cat="kinds">🏷 Kinds</div>
               <div class="setcat" data-cat="keys">🔑 API access</div>
               <div class="setcat" data-cat="capabilities">◈ Capabilities</div>
             </div>
@@ -439,6 +440,18 @@
                   <div class="rhs"><input id="backupLabel" placeholder="label (e.g. before-merge)"><button class="btn cyan" id="backupNew">Back up now</button></div></div>
                 <table class="tbl" style="margin-top:6px"><thead><tr><th>Backup</th><th>Created</th><th>Entities</th><th>Size</th><th></th></tr></thead>
                   <tbody id="backupRows"><tr><td colspan="5"><div class="empty" style="padding:14px">No backups yet.</div></td></tr></tbody></table>
+              </div>
+
+              <!-- Kinds -->
+              <div class="setsec" data-cat="kinds">
+                <h3>Kinds <span class="tag" id="kindsTag" style="font-size:11px;color:var(--muted);font-weight:400"></span></h3>
+                <div class="desc">The per-type ontology. <code class="k">required_properties</code> is enforced — the Health view warns when an active entity of a kind lacks one. Other fields are suggestions.</div>
+                <div class="setrow"><div class="lhs"><div class="t">Software kinds</div><div class="s">Load the built-in software.* taxonomy (idempotent)</div></div>
+                  <div class="rhs"><button class="btn" id="kindsInit">Load software kinds</button></div></div>
+                <div class="setrow"><div class="lhs"><div class="t">Define a kind</div><div class="s">Name + comma-separated required properties</div></div>
+                  <div class="rhs"><input id="kindName" placeholder="kind.name" style="min-width:130px"><input id="kindReq" placeholder="prop1, prop2" style="min-width:130px"><button class="btn cyan" id="kindAdd">Add</button></div></div>
+                <table class="tbl" style="margin-top:6px"><thead><tr><th>Kind</th><th>Required</th><th>Suggested props</th><th></th></tr></thead>
+                  <tbody id="kindRows"><tr><td colspan="4"><div class="empty" style="padding:14px">No kinds registered.</div></td></tr></tbody></table>
               </div>
 
               <!-- API access -->
@@ -1033,6 +1046,41 @@ async function loadSettings(){
   updateVModelHint();
   pollVecStatus();
   loadBackups();
+  loadKinds();
+}
+
+// ── Kinds (ontology) ──
+async function loadKinds(){
+  const tb=$("kindRows");
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/raw/kinds`);
+    $("kindsTag").textContent=`· ${d.stats.total} kinds`;
+    if(!d.kinds.length){tb.innerHTML='<tr><td colspan="4"><div class="empty" style="padding:14px">No kinds registered. Load software kinds or add one.</div></td></tr>';return;}
+    tb.innerHTML=d.kinds.map(k=>`<tr>
+      <td>${k.icon?esc(k.icon)+" ":""}<b>${esc(k.name)}</b>${k.description?`<div style="font-size:10.5px;color:var(--dim)">${esc(k.description)}</div>`:""}</td>
+      <td>${(k.required_properties||[]).map(p=>`<span class="chip">${esc(p)}</span>`).join("")||'<span style="color:var(--dim)">—</span>'}</td>
+      <td style="color:var(--muted);font-size:11.5px">${Object.keys(k.default_properties||{}).join(", ")||"—"}</td>
+      <td><button class="btn sm danger" data-k="${esc(k.name)}">🗑</button></td></tr>`).join("");
+    tb.querySelectorAll("button[data-k]").forEach(b=>b.addEventListener("click",()=>deleteKind(b.dataset.k)));
+  }catch(e){tb.innerHTML=`<tr><td colspan="4"><div class="empty">${esc(e.message)}</div></td></tr>`;}
+}
+async function initSoftwareKinds(){
+  try{const d=await api(`/${encodeURIComponent(db())}/raw/kinds/init-software`,{method:"POST"});
+    toast(`Added ${d.added} software kind(s)`,"ok");loadKinds();}
+  catch(e){toast(e.message,"err");}
+}
+async function addKind(){
+  const name=$("kindName").value.trim(); if(!name){toast("Enter a kind name","err");return;}
+  const req=$("kindReq").value.split(",").map(s=>s.trim()).filter(Boolean);
+  try{await api(`/${encodeURIComponent(db())}/raw/kinds`,{method:"POST",body:{name,required_properties:req}});
+    toast(`Kind "${name}" saved`,"ok");$("kindName").value="";$("kindReq").value="";loadKinds();}
+  catch(e){toast(e.message,"err");}
+}
+async function deleteKind(name){
+  if(!confirm(`Delete kind "${name}"?`))return;
+  try{await api(`/${encodeURIComponent(db())}/raw/kinds/${encodeURIComponent(name)}`,{method:"DELETE"});
+    toast("Kind deleted","ok");loadKinds();}
+  catch(e){toast(e.message,"err");}
 }
 
 // ── Backups ──
@@ -1311,6 +1359,8 @@ $("capRefresh").addEventListener("click",loadCapabilities);
 $("provSave").addEventListener("click",saveProviders);
 $("backupNew").addEventListener("click",createBackup);
 $("healthRefresh").addEventListener("click",loadHealth);
+$("kindsInit").addEventListener("click",initSoftwareKinds);
+$("kindAdd").addEventListener("click",addKind);
 document.querySelectorAll(".setcat").forEach(c=>c.addEventListener("click",()=>{
   const cat=c.dataset.cat;
   document.querySelectorAll(".setcat").forEach(x=>x.classList.toggle("active",x===c));
