@@ -18,6 +18,24 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 
+def pytest_addoption(parser):
+    parser.addoption("--runslow", action="store_true", default=False,
+                     help="run slow stress tests (large-DB scale checks)")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: large-scale stress test (opt in with --runslow)")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--runslow"):
+        return
+    skip = pytest.mark.skip(reason="needs --runslow")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip)
+
+
 @pytest.fixture()
 def client():
     """A FastAPI TestClient over a fresh app (shares the session temp data dir)."""

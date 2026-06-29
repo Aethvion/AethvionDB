@@ -129,6 +129,10 @@ The list view is served a lightweight projection; full entity bodies load on
 demand. Writes patch the cache in place and bump the generation, so a single
 write never triggers a full rebuild.
 
+Reproduce it yourself: `python benchmarks/bench.py [N]` builds a throwaway
+N-entity database and times these operations. Large-scale correctness checks
+live in the test suite under `pytest --runslow`.
+
 ---
 
 ## Architecture
