@@ -21,7 +21,7 @@ from .validator import Validator
 from .distiller import ContentDistiller
 from .client import AethvionClient, AethvionError
 
-__version__ = "0.1.0"
+__version__ = "1.0.0rc1"
 __all__ = [
     "NameIndex",
     "EntityWriter",

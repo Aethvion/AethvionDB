@@ -6,11 +6,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased] — toward 1.0.0
+## [1.0.0rc1] — 2026-06-30
 
-Hardening the engine into a stable, trustworthy release.
+Release candidate: the engine hardened into a stable, trustworthy release with a
+committed storage format, cross-process safety, a tested public surface, and the
+full agent/dashboard experience.
 
-### Added
+### Added (agent & tooling layer)
+- **`AethvionClient`** — a dependency-free (stdlib) Python client: CRUD, search,
+  graph, validate, reindex, backup, and an auto-reconnecting `watch()` that
+  replays missed live-feed events.
+- **MCP server** (`layer2/aethviondb-mcp`) — 11 tools exposing the knowledge base
+  to agents (Claude Desktop, Cursor), built on `AethvionClient`.
+- **Per-type ontology** — `KindRegistry.required_properties` enforced softly by
+  the validator and surfaced in the Health view; API + dashboard to manage kinds.
+- **Database management** — create / delete / rename databases (API + dashboard).
+- **Reproducible benchmark** (`benchmarks/bench.py`) + opt-in large-DB stress
+  tests (`pytest --runslow`).
+
+### Added (core hardening)
 - **Versioned storage format**: `schema_version` on every entity, a `migrate()`
   seam, and a committed on-disk format (`docs/STORAGE_FORMAT.md`).
 - **Cross-process write safety**: per-database file lock around writes and a
@@ -27,11 +41,12 @@ Hardening the engine into a stable, trustworthy release.
   keys) and a dashboard to enable features without a restart.
 - **Virtualized explorer** for databases with tens of thousands of entities.
 - **`aethviondb` CLI**: `serve / init / backup / backups / restore / validate /
-  version`.
+  reindex / version`.
 - **Documentation set**: quickstart, API reference, library guide, agents guide.
 - **Consistent API error envelope** and a request-size limit.
-- Test suite expanded to ~80 tests (HTTP surface, concurrency incl. multi-process,
-  schema versioning, backups, events).
+- Test suite expanded to ~100 tests (HTTP surface, concurrency incl.
+  multi-process, schema versioning, backups, events, client, MCP) plus opt-in
+  large-DB stress tests.
 
 ### Changed
 - `filelock` added as a core dependency (cross-process safety).

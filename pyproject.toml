@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aethviondb"
-version = "0.1.0"
+version = "1.0.0rc1"
 description = "An agent-first knowledge database — typed entity graph with durable one-file-per-entity storage and purpose-baked snapshots."
 readme = "README.md"
 license = { file = "LICENSE" }

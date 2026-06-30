@@ -5,10 +5,10 @@
 > uniform envelope, wired into a graph, deduplicated by name, and queryable in
 > milliseconds. **Runs entirely on your machine.**
 
-> ⚠️ **Early development (v0.1).** The engine was battle-tested inside
-> [Aethvion Suite](https://github.com/Aethvion/Aethvion-Suite) and is now
-> extracted here as a standalone package. The API and storage format may still
-> change before a stable release.
+> 🚀 **Release candidate (v1.0.0rc1).** Battle-tested inside
+> [Aethvion Suite](https://github.com/Aethvion/Aethvion-Suite) and now a
+> standalone package. The [storage format](docs/STORAGE_FORMAT.md) is committed
+> and migrated forward across releases; the `/api/v1` surface is stable.
 
 ---
 
