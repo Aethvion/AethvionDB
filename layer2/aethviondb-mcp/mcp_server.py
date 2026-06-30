@@ -1,82 +1,169 @@
+"""
+AethvionDB MCP server (Layer 2).
+
+Exposes AethvionDB as native MCP tools so agents (Claude Desktop, Cursor, …) can
+read and write the shared brain. It is a thin translator: every tool calls the
+Layer-1 HTTP API through the packaged, dependency-free ``AethvionClient`` — no
+Layer-1 code is imported directly.
+
+Configure via environment:
+    AETHVIONDB_URL      base URL of the server   (default http://127.0.0.1:7475)
+    AETHVIONDB_DB       default database          (default "default")
+    AETHVIONDB_API_KEY  API key, if the db requires one
+    AETHVIONDB_ACTOR    attribution for writes    (default "mcp")
+
+Run:  aethviondb-mcp        (or: python mcp_server.py)
+"""
+from __future__ import annotations
+
 import os
-import sys
-import httpx
+
 from mcp.server.fastmcp import FastMCP
 
-# Initialize FastMCP Server
-mcp = FastMCP("aethviondb-mcp")
+from aethviondb import AethvionClient, AethvionError
 
-# The default Layer 1 API endpoint
-AETHVIONDB_URL = os.getenv("AETHVIONDB_URL", "http://127.0.0.1:7475/api/v1/raw")
-AETHVIONDB_KEY = os.getenv("AETHVIONDB_API_KEY", "")
+mcp = FastMCP("aethviondb")
 
-def get_headers():
-    headers = {"Content-Type": "application/json"}
-    if AETHVIONDB_KEY:
-        headers["X-API-Key"] = AETHVIONDB_KEY
-    return headers
+_BASE  = os.getenv("AETHVIONDB_URL", "http://127.0.0.1:7475")
+_DB    = os.getenv("AETHVIONDB_DB", "default")
+_KEY   = os.getenv("AETHVIONDB_API_KEY") or None
+_ACTOR = os.getenv("AETHVIONDB_ACTOR", "mcp")
 
-@mcp.tool()
-async def search_entities(db: str, query: str = "", entity_type: str = "") -> dict:
-    """Search for entities in the AethvionDB Layer 1.
-    
-    Args:
-        db: The name of the database (e.g., 'default').
-        query: The search string to look for.
-        entity_type: Optional filter by type (e.g. 'person', 'module').
-    """
-    async with httpx.AsyncClient() as client:
-        params = {"q": query}
-        if entity_type:
-            # Note: actual API might require JSON filter or different query param.
-            # Assuming a simple search endpoint for now based on standard REST.
-            params["filters"] = f'{{"type": "{entity_type}"}}'
-            
-        url = f"{AETHVIONDB_URL}/{db}/search"
-        response = await client.get(url, params=params, headers=get_headers())
-        response.raise_for_status()
-        return response.json()
+
+def _client(db: str = "") -> AethvionClient:
+    return AethvionClient(base_url=_BASE, db=db or _DB, api_key=_KEY, actor=_ACTOR)
+
+
+def _safe(fn):
+    """Turn client errors into a structured tool result instead of raising."""
+    try:
+        return fn()
+    except AethvionError as e:
+        return {"error": str(e), "code": e.code, "status": e.status}
+
 
 @mcp.tool()
-async def get_entity(db: str, entity_id_or_name: str) -> dict:
-    """Get the full details of a specific entity by ID or exact name.
-    
+def search_entities(query: str, db: str = "", entity_type: str = "", limit: int = 20) -> dict:
+    """Search the knowledge base by keyword. Returns ranked matching entities.
+
     Args:
-        db: The name of the database.
-        entity_id_or_name: The ID (ws_...) or canonical name of the entity.
+        query: Text to search for (name, summary, tags).
+        db: Database name (defaults to the configured one).
+        entity_type: Optional filter, e.g. 'person', 'module', 'service'.
+        limit: Max results.
     """
-    async with httpx.AsyncClient() as client:
-        # Assuming there's a lookup or standard get endpoint
-        url = f"{AETHVIONDB_URL}/{db}/entities/{entity_id_or_name}"
-        response = await client.get(url, headers=get_headers())
-        response.raise_for_status()
-        return response.json()
+    filters = {"type": entity_type} if entity_type else None
+    return _safe(lambda: {"results": _client(db).search(query, filters=filters, limit=limit)})
+
 
 @mcp.tool()
-async def upsert_entity(db: str, name: str, entity_type: str = "other", summary: str = "") -> dict:
-    """Create or update a basic entity in the database.
-    
-    Args:
-        db: The name of the database.
-        name: Canonical name of the entity.
-        entity_type: Type of the entity (e.g., 'person', 'module', 'concept').
-        summary: A short description.
-    """
-    async with httpx.AsyncClient() as client:
-        url = f"{AETHVIONDB_URL}/{db}/entities"
-        payload = {
-            "name": name,
-            "type": entity_type,
-            "sections": {
-                "core": {"summary": summary}
-            }
-        }
-        response = await client.post(url, json=payload, headers=get_headers())
-        response.raise_for_status()
-        return response.json()
+def get_entity(id_or_name: str, db: str = "") -> dict:
+    """Fetch one entity by ID (ws_…) or by exact name."""
+    def run():
+        c = _client(db)
+        if id_or_name.startswith("ws_"):
+            e = c.get(id_or_name)
+        else:
+            hits = c.search(id_or_name, limit=1)
+            e = c.get(hits[0]["id"]) if hits else None
+        return e or {"error": f"Entity {id_or_name!r} not found"}
+    return _safe(run)
 
-def main():
+
+@mcp.tool()
+def upsert_entity(name: str, type: str = "other", summary: str = "",
+                  kind: str = "", db: str = "") -> dict:
+    """Create or update an entity by name (deduped by the name index).
+
+    Args:
+        name: Canonical name.
+        type: Coarse type (person, module, concept, service, …).
+        summary: 1–3 sentence description.
+        kind: Optional fine-grained sub-type (e.g. 'software.module').
+        db: Database name.
+    """
+    fields = {"type": type}
+    if summary:
+        fields["summary"] = summary
+    if kind:
+        fields["kind"] = kind
+    return _safe(lambda: _client(db).upsert(name, **fields))
+
+
+@mcp.tool()
+def add_relation(source_id: str, kind: str, target_name: str, note: str = "", db: str = "") -> dict:
+    """Add a typed relation from an entity to a target (created as a stub if new).
+
+    Args:
+        source_id: ID of the entity the relation starts from.
+        kind: Relation kind (depends_on, calls, part_of, related_to, …).
+        target_name: Name of the target entity.
+        note: Optional note on the edge.
+    """
+    def run():
+        c = _client(db)
+        existing = c.get(source_id)
+        if not existing:
+            return {"error": f"Source entity {source_id!r} not found"}
+        rels = existing.get("sections", {}).get("relations", [])
+        rels.append({"kind": kind, "target_name": target_name, "note": note})
+        # upsert by name carries relations (resolves target_name -> id / stub)
+        return c.upsert(existing["name"], relations=rels)
+    return _safe(run)
+
+
+@mcp.tool()
+def update_entity(entity_id: str, summary: str = "", db: str = "") -> dict:
+    """Update an entity's summary (more fields can be added as tools grow)."""
+    mutations = {"sections": {"core": {"summary": summary}}} if summary else {}
+    return _safe(lambda: _client(db).update(entity_id, mutations))
+
+
+@mcp.tool()
+def delete_entity(entity_id: str, db: str = "") -> dict:
+    """Soft-delete an entity (sets status to deleted)."""
+    return _safe(lambda: _client(db).delete(entity_id))
+
+
+@mcp.tool()
+def list_neighbors(entity_id: str, db: str = "") -> dict:
+    """List an entity's inbound and outbound relations."""
+    return _safe(lambda: _client(db).neighbors(entity_id))
+
+
+@mcp.tool()
+def traverse_graph(start_id: str, depth: int = 2, direction: str = "both", db: str = "") -> dict:
+    """Traverse the knowledge graph from a starting entity. Returns nodes + edges."""
+    return _safe(lambda: _client(db).traverse(start_id, depth=depth, direction=direction))
+
+
+@mcp.tool()
+def find_path(start_id: str, end_id: str, db: str = "") -> dict:
+    """Find the shortest relation path between two entities."""
+    return _safe(lambda: _client(db).path(start_id, end_id))
+
+
+@mcp.tool()
+def database_health(db: str = "") -> dict:
+    """Run consistency checks and return a health report for the database."""
+    return _safe(lambda: _client(db).validate())
+
+
+@mcp.tool()
+def list_databases() -> dict:
+    """List the available databases on the server."""
+    import urllib.request, json
+    try:
+        with urllib.request.urlopen(f"{_BASE}/api/v1/") as r:
+            data = json.loads(r.read().decode())["data"]
+        return {"databases": data.get("databases", [])}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def main() -> None:
     mcp.run()
+
 
 if __name__ == "__main__":
     main()

@@ -1,13 +1,20 @@
 [project]
 name = "aethviondb-mcp"
 version = "0.1.0"
-description = "Layer 2 MCP Server for AethvionDB"
+description = "Layer 2 MCP server for AethvionDB — exposes the knowledge base as agent tools."
 authors = [{ name = "Aethvion" }]
+requires-python = ">=3.10"
 dependencies = [
     "mcp>=0.1.0",
-    "httpx>=0.24.0",
+    "aethviondb>=0.1.0",
 ]
-requires-python = ">=3.10"
 
 [project.scripts]
 aethviondb-mcp = "mcp_server:main"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["mcp_server"]
