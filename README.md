@@ -139,21 +139,22 @@ live in the test suite under `pytest --runslow`.
 
 ```
 aethviondb/
-├── entity_schema.py     — the entity envelope + structural validation
-├── name_index.py        — thread-safe name → ID index (dedup gate)
-├── entity_writer.py     — create / read / update / delete, atomic writes
+├── entity_schema.py     — the entity envelope (versioned) + structural validation
+├── name_index.py        — name → ID index (dedup gate; cross-process safe)
+├── entity_writer.py     — create / read / update / delete, atomic writes, locking
 ├── snapshot.py          — in-memory + on-disk cache, O(1) freshness
 ├── db_registry.py       — named-database registry
+├── settings_store.py    — host settings (provider keys, default model)
 ├── validator.py         — semantic / cross-entity consistency checks
-├── distiller.py         — LLM text → structured entity
-├── expansion_engine.py  — grow the graph from stubs
+├── kind_registry.py     — per-type ontology (kinds + required properties)
 ├── vectorizer.py        — embeddings for similarity search
-├── chunker.py           — chunk building for retrieval
 ├── baker.py             — export flattened snapshots
-├── importer.py          — import entities from exported files
 ├── backup.py            — backup / restore
-├── kind_registry.py     — fine-grained kind taxonomy
-├── file_manifest.py     — file ↔ entity provenance
+├── events.py            — realtime change feed (SSE pub/sub)
+├── client.py            — dependency-free Python client (AethvionClient)
+├── cli.py               — `aethviondb` command-line interface
+├── distiller.py         — LLM text → structured entity (optional)
+├── importers/           — external-source importers (SQLite, .snapshot)
 └── api_v1/              — versioned HTTP API (raw / baked / keys)
     ├── raw_routes.py        live CRUD, search, graph, batch
     ├── baked_routes.py      snapshot operations
