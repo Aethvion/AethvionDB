@@ -34,7 +34,7 @@ entity, created = w.create("Ada Lovelace", entity_type="person")
 print(w.get_by_name("Ada Lovelace")["id"])
 ```
 
-The optional **intelligence** features (distill text → entity, expand, generate
+The optional **intelligence** features (distill text → entity, generate
 embeddings) require an injected LLM/embedding backend — the deterministic core
 (entities, graph, search, validation) works without one.
 
@@ -72,7 +72,7 @@ Every entity shares one envelope:
   "version": 1,              // mutation counter — incremented on every write
   "created": "ISO-8601",
   "updated": "ISO-8601",
-  "source": "manual|import|expansion|distilled",
+  "source": "manual|import|distilled|<agent>",
   "sections": {
     "core":       { "summary": "", "aliases": [], "categories": [], "tags": [] },
     "timeline":   [ { "date": "...", "event": "...", "ref_ids": ["ws_..."] } ],
@@ -98,8 +98,9 @@ layout and stability policy.
 
 - **Typed entities + typed relations** — one schema for everything, graph-native.
 - **Name-index deduplication** — atomic get-or-create; no duplicate records.
-- **Distillation** — extract a structured entity from raw text with an LLM.
-- **Expansion** — grow the graph from stubs into fully-formed entities.
+- **Distillation** — extract a structured entity from raw text (optional; needs
+  an injected LLM backend).
+- **Live change feed** — SSE stream of every write, with actor attribution.
 - **Hybrid + vector search** — keyword and embedding similarity over entities.
 - **Graph queries** — traverse, neighbors, and shortest-path between entities.
 - **Validation** — schema + cross-entity consistency (duplicates, orphan stubs,
