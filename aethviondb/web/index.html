@@ -220,6 +220,7 @@
       <span class="sp"></span>
       <select class="sel" id="dbSel" title="Active database"></select>
       <button class="btn" id="impBtn" title="Import an external database">⤓ Import</button>
+      <button class="btn" id="distillBtn" title="Distill text into an entity (needs an LLM key in Settings)">✨ Distill</button>
       <button class="btn cyan" id="newBtn">+ Entity</button>
     </div>
     <div class="content">
@@ -482,6 +483,15 @@
 </div>
 
 <!-- Dialogs -->
+<dialog id="distillDlg"><div class="dlg">
+  <h3>Distill text → entity</h3>
+  <div class="hint" style="margin-bottom:8px">Paste text; an LLM extracts a structured entity (name, type, summary, relations) and saves it. Requires an OpenAI/Google key in Settings.</div>
+  <div class="dstack" style="border-bottom:0"><div class="t">Text</div>
+    <textarea id="distillText" style="min-height:140px" placeholder="Paste an article, doc, code, notes…"></textarea></div>
+  <div id="distillOut" class="out"></div>
+  <div class="actions"><button class="btn" id="distillCancel">Cancel</button><button class="btn cyan" id="distillGo">Distill</button></div>
+</div></dialog>
+
 <dialog id="newDlg"><form method="dialog" id="newForm">
   <h3>New entity</h3>
   <div class="drows">
@@ -834,6 +844,18 @@ async function createEntity(){
   try{await api(`/${encodeURIComponent(db())}/raw/entities/upsert`,{method:"POST",body});
     toast("Entity created","ok");$("newDlg").close();await loadDatabases();}
   catch(e){toast(e.message,"err");}
+}
+async function distillRun(){
+  const content=$("distillText").value.trim();
+  const out=$("distillOut"); out.style.display="block";
+  if(!content){out.innerHTML="<span style='color:var(--pink)'>Paste some text first.</span>";return;}
+  out.innerHTML="Distilling…";
+  try{
+    const d=await api(`/${encodeURIComponent(db())}/raw/distill`,{method:"POST",body:{content}});
+    out.innerHTML=`<span style="color:var(--green)">${d.was_created?"Created":"Updated"} <b>${esc(d.entity_name)}</b>${d.stub_count?` · ${d.stub_count} stub(s)`:""}.</span>`;
+    await loadEntities();
+    setTimeout(()=>{$("distillDlg").close();$("distillText").value="";out.style.display="none";openEntity(d.entity_id);},700);
+  }catch(e){out.innerHTML=`<span style="color:var(--pink)">${esc(e.message)}</span>`;}
 }
 function openEditor(e){
   const core=(e.sections||{}).core||{}, props=(e.sections||{}).properties||{};
@@ -1333,6 +1355,9 @@ $("newForm").addEventListener("submit",ev=>{ev.preventDefault();if(ev.submitter&
 $("eCancel").addEventListener("click",()=>$("editDlg").close());
 $("eSave").addEventListener("click",saveEdit);
 $("impBtn").addEventListener("click",()=>switchView("import"));
+$("distillBtn").addEventListener("click",()=>{$("distillOut").style.display="none";$("distillDlg").showModal();});
+$("distillCancel").addEventListener("click",()=>$("distillDlg").close());
+$("distillGo").addEventListener("click",distillRun);
 $("impType").addEventListener("change",()=>{$("impList").innerHTML="";$("impCount").textContent="";scannedFiles=[];});
 $("impBrowse").addEventListener("click",importBrowse);
 $("impScan").addEventListener("click",importScan);

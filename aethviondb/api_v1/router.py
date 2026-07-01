@@ -111,7 +111,8 @@ async def capabilities():
     has_gg    = _has("google.genai") or _has("google.generativeai")
     key_oai   = bool(get_provider_key("openai"))
     key_gg    = bool(get_provider_key("google"))
-    llm       = is_llm_configured()
+    from aethviondb.llm import llm_available
+    llm       = llm_available()   # host-injected caller OR a configured provider key + SDK
 
     caps = [
         {
@@ -135,9 +136,12 @@ async def capabilities():
             "install": 'pip install -e ".[google]"', "needs_key": "google",
         },
         {
-            "id": "distillation", "name": "Distillation / expansion", "category": "Intelligence",
-            "installed": True, "configured": llm, "ready": llm,
-            "hint": "" if llm else "Requires an injected LLM backend (ai_runtime.set_llm_caller); not configurable from the dashboard yet.",
+            "id": "distillation", "name": "Distillation (text → entity)", "category": "Intelligence",
+            "installed": has_oai or has_gg, "configured": llm, "ready": llm,
+            "hint": ("" if llm else
+                     ("Add an OpenAI or Google API key in Providers below."
+                      if (has_oai or has_gg) else
+                      "Install a provider SDK (openai/google) and add a key to enable distillation.")),
         },
     ]
     return envelope({"capabilities": caps}, took_start=t)

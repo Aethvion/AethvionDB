@@ -1517,6 +1517,13 @@ async def distill_text(
     check_auth(root, authorization, x_aethviondb_key)
     _ensure(db)
 
+    # Build an LLM caller from the configured provider key (or use a host-injected
+    # one). If none is available, distillation is gracefully off.
+    from aethviondb.llm import ensure_llm_from_settings
+    if not ensure_llm_from_settings():
+        raise HTTPException(400, "Distillation needs an LLM provider. Add an OpenAI "
+                                 "or Google API key in Settings (and install its SDK).")
+
     from aethviondb.distiller import ContentDistiller
     w   = _writer(db)
     idx = _index(db)
@@ -1524,8 +1531,11 @@ async def distill_text(
     result = await d.distill(content=req.content, model=req.model, source=req.source)
 
     if result.get("errors"):
-        raise HTTPException(500, {"code": "DISTILL_ERROR", "errors": result["errors"]})
+        raise HTTPException(502, {"code": "DISTILL_ERROR", "message": "; ".join(result["errors"])})
 
+    entity = w.get(result.get("entity_id")) if result.get("entity_id") else None
+    if entity:
+        _emit(db, "created" if result.get("was_created") else "updated", entity, "distiller")
     return envelope(result, db=db, took_start=t)
 
 

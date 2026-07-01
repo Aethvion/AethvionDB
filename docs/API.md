@@ -77,7 +77,7 @@ recorded on the change event and falls back to the entity's `source`.
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/distill` | LLM text → entity. Requires an injected LLM backend. |
+| POST | `/distill` | LLM text → entity. Enabled by an OpenAI/Google key in Settings (or a host-injected caller); `400` if none. |
 | GET | `/vectorize/models` | Embedding models (local + API). |
 | GET | `/vectorize/status` | Progress of a vectorization pass. |
 | POST | `/vectorize` | Start embedding all entities. `{model, force_rewrite?, include_stubs?}`. |
